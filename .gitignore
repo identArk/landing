@@ -2,6 +2,11 @@
 node_modules
 dist
 
+# Local env (commit .env.example only)
+.env
+.env.local
+.env.*.local
+
 # Internal team docs - do not commit
 TEAM.md
 *.internal.md
