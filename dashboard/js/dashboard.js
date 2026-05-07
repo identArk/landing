@@ -11,7 +11,9 @@
   // ────────────────────────────────────────────────────────────────────────────
 
   const CONFIG = {
-    apiBase: 'https://identark-cloud.fly.dev/v1',
+    apiBase: (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+             ? 'http://localhost:8000/v1'
+             : 'https://api.identark.io/v1'),
     toastDuration: 4000,
     storageKeys: {
       sidebarCollapsed: 'identark_sidebar_collapsed',

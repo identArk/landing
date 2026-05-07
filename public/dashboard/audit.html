@@ -104,6 +104,14 @@
           </svg>
           Policies
         </a>
+        <a href="/dashboard/approvals.html" class="nav-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+          HITL Approvals
+          <span class="nav-badge nav-badge-danger" id="nav-approvals-count" style="display: none;">0</span>
+        </a>
         <a href="/dashboard/team.html" class="nav-item">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -244,6 +252,10 @@
         <label>User</label>
         <select id="user-filter" class="form-select" onchange="filterLogs()">
           <option value="all">All Users</option>
+          <!-- User options populated dynamically -->
+          
+          
+          <option value="system">System</option>
         </select>
       </div>
       <div class="filter-group">
@@ -292,18 +304,21 @@
       </div>
       <div class="card-body card-body-flush">
         <div class="audit-log" id="audit-log">
-          <!-- Empty state - no events -->
+          <!-- Empty state - no logs yet -->
           <div class="empty-state" style="padding: 3rem; text-align: center;">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--text-muted); margin-bottom: 1rem;">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
               <polyline points="14 2 14 8 20 8"/>
               <line x1="16" y1="13" x2="8" y2="13"/>
               <line x1="16" y1="17" x2="8" y2="17"/>
-              <polyline points="10 9 9 9 8 9"/>
             </svg>
-            <p style="color: var(--text-secondary); margin: 0;">No audit events found</p>
-            <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.5rem;">Events will appear here when activity occurs</p>
+            <p style="color: var(--text-muted);">No audit logs available. Logs will appear here when activity occurs.</p>
           </div>
+        </div>
+
+        <!-- Load More -->
+        <div class="load-more">
+          <button class="btn btn-secondary" onclick="loadMoreLogs()">Load More Events</button>
         </div>
       </div>
     </div>

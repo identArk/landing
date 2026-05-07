@@ -1,25 +1,28 @@
 /**
  * IdentArk Dashboard Data
- * Fetches real data from API using api-client.js
- * Falls back to localStorage for offline/demo mode
+ * Fetches real data from API using api.js
+ * Falls back to empty states when API is unavailable
  */
 
 const DashboardData = {
-  // API client instance
-  _apiClient: null,
-  _authState: null,
-  _errorBoundary: null,
-
   /**
    * Initialize data module
    */
   async init() {
-    // Get singleton instances
-    this._apiClient = getAPIClient();
-    this._authState = getAuthState();
-    this._errorBoundary = getErrorBoundary();
+    // API client from api.js is already loaded
+    if (typeof API === 'undefined') {
+      console.warn('[DashboardData] API client not loaded');
+      return;
+    }
 
-    // Load all dashboard data in parallel with error boundaries
+    // Initialize auth first so tokens are available
+    const isAuthenticated = await API.init();
+    if (!isAuthenticated) {
+      console.warn('[DashboardData] Not authenticated');
+      return;
+    }
+
+    // Load all dashboard data in parallel with fallbacks
     await Promise.all([
       this._loadUserWithFallback(),
       this._loadStatsWithFallback(),
@@ -33,18 +36,13 @@ const DashboardData = {
    */
   async _loadUserWithFallback() {
     try {
-      const user = this._authState.getUser();
-      const org = this._authState.getOrg();
-
+      const user = await API.getCurrentUser();
       if (user) {
-        this._updateUserUI(user, org);
+        this._updateUserUI(user, user.org);
       }
     } catch (error) {
-      this._errorBoundary._handleError(error, {
-        type: 'dataLoadError',
-        module: 'loadUser'
-      });
-      this._updateUserUI({ email: 'User' }, { name: 'Org' });
+      console.warn('[DashboardData] Failed to load user:', error.message);
+      this._updateUserUI({ email: 'User' }, { name: 'Organization' });
     }
   },
 
@@ -53,14 +51,10 @@ const DashboardData = {
    */
   async _loadStatsWithFallback() {
     try {
-      const data = await this._apiClient.getStats();
+      const data = await API.request('/stats');
       this._updateStatsUI(data);
     } catch (error) {
-      this._errorBoundary._handleError(error, {
-        type: 'dataLoadError',
-        module: 'loadStats'
-      });
-      // Show fallback/empty stats
+      console.warn('[DashboardData] Failed to load stats:', error.message);
       this._updateStatsUI({
         credentials: 0,
         agents: 0,
@@ -75,18 +69,16 @@ const DashboardData = {
    */
   async _loadSessionsWithFallback() {
     try {
-      const sessions = await this._apiClient.request('/sessions?limit=5');
+      const response = await API.request('/sessions?limit=5');
+      const sessions = response?.sessions || response?.items || [];
 
-      if (sessions && sessions.sessions && sessions.sessions.length > 0) {
-        this._updateSessionsUI(sessions.sessions);
+      if (sessions.length > 0) {
+        this._updateSessionsUI(sessions);
       } else {
         this._showEmptyState('sessions-empty', 'sessions-table');
       }
     } catch (error) {
-      this._errorBoundary._handleError(error, {
-        type: 'dataLoadError',
-        module: 'loadSessions'
-      });
+      console.warn('[DashboardData] Failed to load sessions:', error.message);
       this._showEmptyState('sessions-empty', 'sessions-table');
     }
   },
@@ -96,18 +88,16 @@ const DashboardData = {
    */
   async _loadCredentialsWithFallback() {
     try {
-      const data = await this._apiClient.getCredentials();
+      const response = await API.request('/credentials');
+      const credentials = Array.isArray(response) ? response : (response?.items || []);
 
-      if (data && data.length > 0) {
-        this._updateCredentialsUI(data);
+      if (credentials.length > 0) {
+        this._updateCredentialsUI(credentials);
       } else {
         this._showEmptyState('credentials-empty', 'credentials-table');
       }
     } catch (error) {
-      this._errorBoundary._handleError(error, {
-        type: 'dataLoadError',
-        module: 'loadCredentials'
-      });
+      console.warn('[DashboardData] Failed to load credentials:', error.message);
       this._showEmptyState('credentials-empty', 'credentials-table');
     }
   },
@@ -116,7 +106,7 @@ const DashboardData = {
    * Update user UI
    */
   _updateUserUI(user = {}, org = {}) {
-    const name = org?.name || user?.email?.split('@')[0] || 'User';
+    const name = org?.name || user?.org_name || user?.email?.split('@')[0] || 'User';
     const email = user?.email || '';
     const initial = (name || 'U').charAt(0).toUpperCase();
 
@@ -130,17 +120,24 @@ const DashboardData = {
    * Update stats UI
    */
   _updateStatsUI(data = {}) {
-    this._setText('#stat-credentials', data.credentials || 0);
-    this._setText('#stat-agents', data.agents || 0);
-    this._setText('#stat-executions', data.executions || 0);
+    // Normalize backend field names (backend uses snake_case, frontend expected camelCase-ish)
+    const credentials = data.credentials_count ?? data.credentials ?? 0;
+    const agents = data.agents_count ?? data.agents ?? 0;
+    const executions = data.total_executions ?? data.executions ?? 0;
+    const limit = data.execution_limit || 500;
 
-    if (data.executions > 0 && data.success_rate !== undefined) {
+    this._setText('#stat-credentials', credentials);
+    this._setText('#stat-agents', agents);
+    this._setText('#stat-executions', executions);
+
+    if (executions > 0 && data.success_rate !== undefined) {
       this._setText('#stat-success-rate', `${Math.round(data.success_rate)}%`);
+    } else if (data.usage_percent !== undefined) {
+      this._setText('#stat-success-rate', `${Math.round(data.usage_percent)}%`);
     }
 
     // Update usage meter
-    const used = data.executions || 0;
-    const limit = data.execution_limit || 500;
+    const used = data.monthly_executions ?? executions;
     const percent = Math.min((used / limit) * 100, 100);
 
     this._setText('#usage-count', `${used} / ${limit}`);
@@ -148,10 +145,10 @@ const DashboardData = {
     if (fill) fill.style.width = `${percent}%`;
 
     // Update nav badge
-    if (data.credentials > 0) {
+    if (credentials > 0) {
       const badge = document.getElementById('nav-credentials-count');
       if (badge) {
-        badge.textContent = data.credentials;
+        badge.textContent = credentials;
         badge.style.display = '';
       }
     }
@@ -169,19 +166,26 @@ const DashboardData = {
     if (table) table.style.display = '';
 
     if (tbody) {
-      tbody.innerHTML = sessions.map(s => `
+      tbody.innerHTML = sessions.map(s => {
+        const agentLabel = s.agent_name || s.agent_id || 'Unknown';
+        const providerLabel = s.provider ? ` (${s.provider})` : '';
+        const status = s.status || (s.message_count > 0 ? 'active' : 'idle');
+        const statusClass = status === 'completed' || status === 'active' ? 'success' : 'warning';
+        const statusText = status === 'active' ? 'Active' : (status === 'completed' ? 'Success' : (status || 'Idle'));
+        return `
         <tr>
           <td>
             <div class="agent-cell">
               <span class="agent-indicator"></span>
-              ${this._escape(s.agent_name || 'Unknown')}
+              ${this._escape(agentLabel)}${this._escape(providerLabel)}
             </div>
           </td>
-          <td><code>${this._escape(s.credential_name || '—')}</code></td>
-          <td><span class="badge badge-${s.success ? 'success' : 'warning'}">${s.success ? 'Success' : 'Failed'}</span></td>
-          <td class="text-muted">${this._timeAgo(s.created_at)}</td>
+          <td><code>${this._escape(s.model || '—')}</code></td>
+          <td><span class="badge badge-${statusClass}">${statusText}</span></td>
+          <td class="text-muted">${this._timeAgo(s.created_at || s.started_at)}</td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
     }
   },
 
@@ -204,13 +208,13 @@ const DashboardData = {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-muted">
                 <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
               </svg>
-              <code>${this._escape(c.name)}</code>
+              <code>${this._escape(c.label || c.name)}</code>
             </div>
           </td>
-          <td>${(c.allowed_agents || []).map(a => `<span class="badge badge-neutral">${this._escape(a)}</span>`).join(' ') || '—'}</td>
-          <td>${(c.scopes || []).map(s => `<code>${this._escape(s)}</code>`).join(', ') || '—'}</td>
-          <td class="text-muted">${c.last_used ? this._timeAgo(c.last_used) : 'Never'}</td>
-          <td><span class="badge badge-${c.active ? 'success' : 'warning'}">${c.active ? 'Active' : 'Inactive'}</span></td>
+          <td><span class="badge badge-neutral">${this._escape(c.provider || '—')}</span></td>
+          <td><code>${this._escape(c.credential_ref || '—')}</code></td>
+          <td class="text-muted">${c.rotated_at ? this._timeAgo(c.rotated_at) : (c.last_used ? this._timeAgo(c.last_used) : 'Never')}</td>
+          <td><span class="badge badge-${c.is_active !== false ? 'success' : 'warning'}">${c.is_active !== false ? 'Active' : 'Inactive'}</span></td>
         </tr>
       `).join('');
     }

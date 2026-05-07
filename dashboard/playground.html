@@ -310,7 +310,7 @@
             </div>
 
             <div class="playground-url">
-              <span class="playground-url-base">https://identark-cloud.fly.dev/v1</span>
+              <span class="playground-url-base">https://api.identark.io/v1</span>
               <input type="text" class="playground-url-input" id="playground-path" value="/sessions" placeholder="/endpoint">
             </div>
 
@@ -403,7 +403,9 @@ Content-Type: application/json</code></pre>
 
     // Playground functionality
     (function() {
-      const API_BASE = 'https://identark-cloud.fly.dev/v1';
+      const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+                        ? 'http://localhost:8000/v1'
+                        : 'https://api.identark.io/v1');
       let currentMethod = 'GET';
 
       // Method selection

@@ -11,7 +11,7 @@ const Theme = {
     const savedTheme = localStorage.getItem(this.STORAGE_KEY);
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-    // Priority: saved preference > system preference > default (dark)
+    // Priority: saved preference > system preference > default (light)
     const theme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
     this.set(theme, false);
 
@@ -50,7 +50,7 @@ const Theme = {
 
   // Get current theme
   get() {
-    return document.documentElement.getAttribute('data-theme') || 'dark';
+    return document.documentElement.getAttribute('data-theme') || 'light';
   },
 
   // Add toggle button to header

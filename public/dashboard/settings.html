@@ -106,6 +106,14 @@
           </svg>
           Policies
         </a>
+        <a href="/dashboard/approvals.html" class="nav-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+          HITL Approvals
+          <span class="nav-badge nav-badge-danger" id="nav-approvals-count" style="display: none;">0</span>
+        </a>
         <a href="/dashboard/team.html" class="nav-item">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -343,7 +351,11 @@
                 </tr>
               </thead>
               <tbody>
-                <!-- Team members will be loaded dynamically -->
+                <tr>
+                  <td colspan="4" class="text-center text-muted" style="padding: 2rem;">
+                    No team members yet
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -457,32 +469,10 @@
                 </tr>
               </thead>
               <tbody>
+              <tbody>
                 <tr>
-                  <td><strong>Production</strong></td>
-                  <td><code>cs_live_••••••••7x9k</code></td>
-                  <td class="text-muted">Jan 15, 2026</td>
-                  <td class="text-muted">2 min ago</td>
-                  <td>
-                    <button class="action-btn action-btn-danger" title="Revoke">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="3 6 5 6 21 6"/>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                      </svg>
-                    </button>
-                  </td>
-                </tr>
-                <tr>
-                  <td><strong>Development</strong></td>
-                  <td><code>cs_test_••••••••4n2p</code></td>
-                  <td class="text-muted">Feb 10, 2026</td>
-                  <td class="text-muted">1 day ago</td>
-                  <td>
-                    <button class="action-btn action-btn-danger" title="Revoke">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="3 6 5 6 21 6"/>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                      </svg>
-                    </button>
+                  <td colspan="5" class="text-center text-muted" style="padding: 2rem;">
+                    No API keys created yet
                   </td>
                 </tr>
               </tbody>

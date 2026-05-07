@@ -7,7 +7,10 @@
 
 const API = {
   // Configuration
-  baseUrl: localStorage.getItem('identark_api_url') || 'https://identark-cloud.fly.dev',
+  baseUrl: localStorage.getItem('identark_api_url') ||
+           (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+             ? 'http://localhost:8000'
+             : 'https://api.identark.io'),
 
   // Auth state
   _accessToken: null,
@@ -18,23 +21,22 @@ const API = {
    * Initialize API client - call on page load
    */
   async init() {
-    // Try to get tokens from cookies
-    this._accessToken = this._getCookie('access_token');
+    // Try to get tokens from cookies (non-httponly) or localStorage fallback
+    this._accessToken = this._getCookie('access_token') || localStorage.getItem('identark_access_token');
     this._refreshToken = this._getCookie('refresh_token');
 
-    if (this._accessToken) {
-      try {
-        this._user = await this.getCurrentUser();
-        this._updateUserUI();
-        return true;
-      } catch (e) {
-        // Token expired or invalid
-        console.warn('Session expired, redirecting to login');
-        this.logout();
-        return false;
-      }
+    // Always try to validate session — the backend may authenticate via
+    // HTTP-only cookie even when we can't read it from JS.
+    try {
+      this._user = await this.getCurrentUser();
+      this._updateUserUI();
+      return true;
+    } catch (e) {
+      // No valid session via cookie or header
+      this._accessToken = null;
+      this._refreshToken = null;
+      return false;
     }
-    return false;
   },
 
   /**
@@ -112,17 +114,22 @@ const API = {
   },
 
   async _refreshAccessToken() {
+    // With Firebase Auth, token refresh is handled by the Firebase SDK on the client.
+    // The backend validates whatever token it receives. If the cookie is expired,
+    // redirect to login so the Firebase SDK can get a fresh token.
     try {
       const response = await fetch(`${this.baseUrl}/v1/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: this._refreshToken }),
         credentials: 'include',
       });
 
       if (response.ok) {
         const data = await response.json();
-        this._accessToken = data.access_token;
+        if (data.access_token) {
+          this._accessToken = data.access_token;
+          localStorage.setItem('identark_access_token', data.access_token);
+        }
         return true;
       }
       return false;
@@ -153,6 +160,8 @@ const API = {
   logout() {
     document.cookie = 'access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     document.cookie = 'refresh_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    localStorage.removeItem('identark_access_token');
+    localStorage.removeItem('identark_user');
     this._accessToken = null;
     this._refreshToken = null;
     this._user = null;
@@ -163,20 +172,30 @@ const API = {
   // AUTH ENDPOINTS
   // ════════════════════════════════════════════════════════════════════════════
 
-  async signup(email, password, name) {
-    return this.request('/auth/signup', {
+  async signup(idToken, orgName) {
+    const data = await this.request('/auth/signup', {
       method: 'POST',
-      body: JSON.stringify({ email, password, name }),
+      body: JSON.stringify({ id_token: idToken, org_name: orgName }),
     });
+    if (data.access_token) {
+      this._accessToken = data.access_token;
+      localStorage.setItem('identark_access_token', data.access_token);
+    }
+    return data;
   },
 
-  async login(email, password) {
+  async login(idToken) {
     const data = await this.request('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ id_token: idToken }),
     });
-    this._accessToken = data.access_token;
-    this._refreshToken = data.refresh_token;
+    if (data.access_token) {
+      this._accessToken = data.access_token;
+      localStorage.setItem('identark_access_token', data.access_token);
+    }
+    if (data.refresh_token) {
+      this._refreshToken = data.refresh_token;
+    }
     return data;
   },
 
@@ -428,3 +447,10 @@ document.head.appendChild(toastStyles);
 window.API = API;
 window.APIError = APIError;
 window.Toast = Toast;
+
+// Auto-init on page load (async, non-blocking)
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => API.init());
+} else {
+  API.init();
+}

@@ -8,7 +8,9 @@
 
   class APIClient {
     constructor(config = {}) {
-      this.baseURL = config.baseURL || 'https://identark-cloud.fly.dev/v1';
+      this.baseURL = config.baseURL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+                                         ? 'http://localhost:8000/v1'
+                                         : 'https://api.identark.io/v1');
       this.tokenRefreshURL = config.tokenRefreshURL || (this.baseURL + '/auth/refresh');
       this.maxRetries = config.maxRetries || 3;
       this.retryDelay = config.retryDelay || 1000; // ms
@@ -366,6 +368,15 @@
         return await this.request('/stats');
       } finally {
         this.setLoading('stats', false);
+      }
+    }
+
+    async getTokenVelocity(timeRange = '30d') {
+      this.setLoading('tokenVelocity', true);
+      try {
+        return await this.request(`/stats/tokens?range=${timeRange}`);
+      } finally {
+        this.setLoading('tokenVelocity', false);
       }
     }
 
