@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { LogoMark } from "@/components/LogoMark";
 import type { ReactNode } from "react";
 
 export function AuthShell({
@@ -13,10 +12,7 @@ export function AuthShell({
     <div className="auth-app">
       <header>
         <Link to="/" className="logo">
-          <div className="logo-mark">
-            <LogoMark />
-          </div>
-          IdentArk
+          <img src="/assets/logo.jpg" alt="IdentArk" style={{ height: "32px", width: "auto", borderRadius: "4px" }} />
         </Link>
         {headerRight}
       </header>

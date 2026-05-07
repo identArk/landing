@@ -5,6 +5,10 @@ import { Link } from "react-router-dom";
 import { Plausible } from "@/components/Plausible";
 import { LogoMark } from "@/components/LogoMark";
 
+const API_BASE = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+  ? "http://localhost:8000"
+  : "https://api.identark.io");
+
 const PROVIDERS = ["OpenAI", "Anthropic", "Google Gemini", "Mistral", "AWS Bedrock", "Other"] as const;
 
 export function RequestAccessPage() {
@@ -32,9 +36,28 @@ export function RequestAccessPage() {
     const formData = new FormData(form);
 
     try {
-      const res = await fetch("https://api.web3forms.com/submit", { method: "POST", body: formData });
+      const res = await fetch(`${API_BASE}/v1/waitlist`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.get("name"),
+          email: formData.get("email"),
+          company: formData.get("company"),
+          building: formData.get("building"),
+          providers: picked.join(", "),
+          current_solution: formData.get("current_solution") || null,
+        }),
+      });
       const result = await res.json();
-      if (!result.success) throw new Error(result.message || "Submission failed");
+      let errMsg = "Submission failed";
+      if (Array.isArray(result.detail)) {
+        errMsg = result.detail.map((d: any) => d.msg).join(", ");
+      } else if (result.detail?.message) {
+        errMsg = result.detail.message;
+      } else if (result.message) {
+        errMsg = result.message;
+      }
+      if (!res.ok) throw new Error(errMsg);
       setSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
@@ -63,8 +86,8 @@ export function RequestAccessPage() {
             </div>
             IdentArk
           </Link>
-          <Link to="/login" className="header-link">
-            Already have access? <strong style={{ color: "var(--gold)" }}>Log in</strong>
+          <Link to="/" className="header-link">
+            ← Back to home
           </Link>
         </header>
 
@@ -90,11 +113,7 @@ export function RequestAccessPage() {
               </div>
 
               {!success ? (
-                <form action="https://api.web3forms.com/submit" method="POST" onSubmit={onSubmit}>
-                  <input type="hidden" name="access_key" value={import.meta.env.VITE_WEB3FORMS_KEY} readOnly />
-                  <input type="hidden" name="subject" value="IdentArk Early Access Request" readOnly />
-                  <input type="hidden" name="from_name" value="IdentArk Waitlist" readOnly />
-                  <input type="checkbox" name="botcheck" className="hidden" style={{ display: "none" }} readOnly tabIndex={-1} />
+                <form onSubmit={onSubmit}>
 
                   <div className={`error-message ${error ? "is-visible" : ""}`}>
                     <p>

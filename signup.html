@@ -10,6 +10,10 @@
   <!-- Plausible Analytics (privacy-friendly, GDPR compliant) -->
   <script defer data-domain="identark.io" src="https://plausible.io/js/script.js"></script>
 
+  <!-- Firebase Auth SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -285,6 +289,12 @@
       box-shadow: 0 8px 24px var(--green-glow);
     }
 
+    .submit-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
     .submit-btn:active {
       transform: translateY(0);
     }
@@ -341,6 +351,35 @@
     .feature-item svg {
       color: var(--green);
       flex-shrink: 0;
+    }
+
+    /* ── ERROR MESSAGE ── */
+    .error-message {
+      background: rgba(255,77,77,0.1);
+      border: 1px solid rgba(255,77,77,0.3);
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: var(--red);
+      display: none;
+    }
+
+    /* ── LOADING SPINNER ── */
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(0,0,0,0.3);
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
 
     /* ── PAGE FOOTER ── */
@@ -410,13 +449,13 @@
       <div class="signup-card">
         <!-- Social Signup -->
         <div class="social-buttons">
-          <button type="button" class="social-btn github">
+          <button type="button" class="social-btn github" id="github-btn">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
             </svg>
             Continue with GitHub
           </button>
-          <button type="button" class="social-btn google">
+          <button type="button" class="social-btn google" id="google-btn">
             <svg width="18" height="18" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
               <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -431,8 +470,11 @@
           <span>or</span>
         </div>
 
+        <!-- Error Message -->
+        <div class="error-message" id="error-message"></div>
+
         <!-- Email/Password Form -->
-        <form action="https://identark-cloud.fly.dev/v1/auth/signup" method="POST" id="signup-form">
+        <form id="signup-form">
           <input type="hidden" id="invite_code" name="invite_code" value="">
           <div class="form-row">
             <div class="form-group">
@@ -468,7 +510,7 @@
             <p class="form-hint">Optional — you can set this up later</p>
           </div>
 
-          <button type="submit" class="submit-btn">Create account</button>
+          <button type="submit" class="submit-btn" id="submit-btn">Create account</button>
         </form>
 
         <div class="terms">
@@ -513,20 +555,84 @@
   </footer>
 
   <script>
-    // Invite code validation
-    const urlParams = new URLSearchParams(window.location.search);
-    const inviteCode = urlParams.get('invite');
-    const validCodes = ['IDENTARK10', 'EARLY2026', 'FOUNDER'];
+    // ════════════════════════════════════════════════════════════════════════════
+    // Firebase Configuration — Update these values after setting up Firebase project
+    // ════════════════════════════════════════════════════════════════════════════
+    const firebaseConfig = {
+      apiKey: "AIzaSyAXRwmezmtd_BH2H1KBUwsXcalb-gNQZWI",
+      authDomain: "identark-2a096.firebaseapp.com",
+      projectId: "identark-2a096",
+      storageBucket: "identark-2a096.firebasestorage.app",
+      messagingSenderId: "213407896930",
+      appId: "1:213407896930:web:4142fcd2a07582558e883b"
+    };
 
-    if (!inviteCode || !validCodes.includes(inviteCode)) {
-      // Redirect to request-access page
-      window.location.href = '/request-access.html';
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+                      ? 'http://localhost:8000'
+                      : 'https://api.identark.io');
+
+    // UI refs
+    const signupForm = document.getElementById('signup-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const errorMessage = document.getElementById('error-message');
+
+    function showError(msg) {
+      errorMessage.textContent = msg;
+      errorMessage.style.display = 'block';
     }
 
-    // Store invite code in hidden field
-    document.getElementById('invite_code').value = inviteCode;
+    function hideError() {
+      errorMessage.style.display = 'none';
+    }
 
+    function setLoading(loading) {
+      submitBtn.disabled = loading;
+      submitBtn.innerHTML = loading
+        ? '<span class="spinner"></span>Creating account...'
+        : 'Create account';
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // Send ID token to backend to create local user record
+    // ════════════════════════════════════════════════════════════════════════════
+    async function backendSignup(idToken, orgName) {
+      const response = await fetch(`${API_BASE}/v1/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_token: idToken, org_name: orgName || undefined }),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        const msg = data.detail || data.error || data.message || 'Signup failed';
+        if (response.status === 403) {
+          throw new Error(msg);
+        }
+        throw new Error(msg);
+      }
+
+      return response.json();
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // Access is controlled by backend waitlist approval — no invite code needed
+    // ════════════════════════════════════════════════════════════════════════════
+    const urlParams = new URLSearchParams(window.location.search);
+    const inviteCode = urlParams.get('invite');
+    if (inviteCode) {
+      document.getElementById('invite_code').value = inviteCode;
+    } else {
+      document.querySelector('.beta-invite').style.display = 'none';
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
     // Password strength indicator
+    // ════════════════════════════════════════════════════════════════════════════
     const passwordInput = document.getElementById('password');
     const strengthBars = document.querySelectorAll('.strength-bar');
 
@@ -549,62 +655,125 @@
       });
     });
 
-    // Handle form submission
-    const signupForm = document.getElementById('signup-form');
-    const submitBtn = signupForm.querySelector('.submit-btn');
-
+    // ════════════════════════════════════════════════════════════════════════════
+    // Email/Password Signup
+    // ════════════════════════════════════════════════════════════════════════════
     signupForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      hideError();
+      setLoading(true);
 
-      const originalText = submitBtn.textContent;
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Creating account...';
-
-      const formData = new FormData(signupForm);
-      const data = Object.fromEntries(formData.entries());
+      const firstName = document.getElementById('first_name').value.trim();
+      const lastName = document.getElementById('last_name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const orgName = document.getElementById('org_name').value.trim();
 
       try {
-        const response = await fetch('https://identark-cloud.fly.dev/v1/auth/signup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-          credentials: 'include'
+        // Create user in Firebase Auth
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+
+        // Update profile with display name
+        await userCredential.user.updateProfile({
+          displayName: `${firstName} ${lastName}`
         });
 
-        const result = await response.json();
+        // Get ID token
+        const idToken = await userCredential.user.getIdToken(true);
 
-        if (!response.ok) {
-          throw new Error(result.error || result.message || 'Signup failed');
-        }
+        // Send to backend to create local user record
+        await backendSignup(idToken, orgName);
 
-        // Success - redirect to login
-        window.location.href = `/login.html?registered=true`;
+        // Store token for API calls
+        localStorage.setItem('identark_access_token', idToken);
+        localStorage.setItem('identark_user', JSON.stringify({
+          email: userCredential.user.email,
+          name: `${firstName} ${lastName}`
+        }));
+
+        // Send email verification
+        await userCredential.user.sendEmailVerification();
+
+        // Success — redirect to dashboard
+        window.location.href = '/dashboard/index.html?welcome=true';
 
       } catch (error) {
-        // Show error message
-        let errorDiv = document.getElementById('signup-error');
-        if (!errorDiv) {
-          errorDiv = document.createElement('div');
-          errorDiv.id = 'signup-error';
-          errorDiv.style.cssText = 'background:rgba(255,77,77,0.1);border:1px solid rgba(255,77,77,0.3);border-radius:10px;padding:12px 16px;margin-bottom:20px;color:#ff4d4d;font-size:13px;';
-          signupForm.insertBefore(errorDiv, signupForm.firstChild);
+        console.error('Signup error:', error);
+        let message = 'Signup failed. Please try again.';
+        if (error.code === 'auth/email-already-in-use') {
+          message = 'An account with this email already exists. Please log in instead.';
+        } else if (error.code === 'auth/invalid-email') {
+          message = 'Please enter a valid email address';
+        } else if (error.code === 'auth/weak-password') {
+          message = 'Password is too weak. Please use at least 8 characters with mixed case, numbers, and symbols.';
+        } else if (error.message) {
+          message = error.message;
         }
-        errorDiv.textContent = error.message;
-        errorDiv.style.display = 'block';
-
-        submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
+        showError(message);
+        setLoading(false);
       }
     });
 
-    // GitHub OAuth
-    document.querySelector('.social-btn.github').addEventListener('click', () => {
-      window.location.href = 'https://identark-cloud.fly.dev/v1/auth/github';
+    // ════════════════════════════════════════════════════════════════════════════
+    // GitHub OAuth via Firebase
+    // ════════════════════════════════════════════════════════════════════════════
+    document.getElementById('github-btn').addEventListener('click', async () => {
+      hideError();
+      const provider = new firebase.auth.GithubAuthProvider();
+      provider.addScope('read:user');
+      provider.addScope('user:email');
+
+      try {
+        const result = await auth.signInWithPopup(provider);
+        const idToken = await result.user.getIdToken();
+        const orgName = document.getElementById('org_name').value.trim();
+
+        await backendSignup(idToken, orgName);
+
+        localStorage.setItem('identark_access_token', idToken);
+        localStorage.setItem('identark_user', JSON.stringify({
+          email: result.user.email,
+          name: result.user.displayName || result.user.email?.split('@')[0]
+        }));
+
+        window.location.href = '/dashboard/index.html?welcome=true';
+      } catch (error) {
+        console.error('GitHub signup error:', error);
+        if (error.code !== 'auth/popup-closed-by-user') {
+          showError(error.message || 'GitHub signup failed');
+        }
+      }
     });
 
-    // Google OAuth
-    document.querySelector('.social-btn.google').addEventListener('click', () => {
-      window.location.href = 'https://identark-cloud.fly.dev/v1/auth/google';
+    // ════════════════════════════════════════════════════════════════════════════
+    // Google OAuth via Firebase
+    // ════════════════════════════════════════════════════════════════════════════
+    document.getElementById('google-btn').addEventListener('click', async () => {
+      hideError();
+      const provider = new firebase.auth.GoogleAuthProvider();
+      provider.addScope('email');
+      provider.addScope('profile');
+
+      try {
+        const result = await auth.signInWithPopup(provider);
+        const idToken = await result.user.getIdToken();
+        const orgName = document.getElementById('org_name').value.trim();
+
+        await backendSignup(idToken, orgName);
+
+        localStorage.setItem('identark_access_token', idToken);
+        localStorage.setItem('identark_user', JSON.stringify({
+          email: result.user.email,
+          name: result.user.displayName || result.user.email?.split('@')[0]
+        }));
+
+        window.location.href = '/dashboard/index.html?welcome=true';
+      } catch (error) {
+        console.error('Google signup error:', error);
+        if (error.code !== 'auth/popup-closed-by-user') {
+          showError(error.message || 'Google signup failed');
+        }
+      }
     });
   </script>
 

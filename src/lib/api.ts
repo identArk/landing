@@ -1,4 +1,4 @@
-/** Proxied as `/api/*` on Vercel → `identark-cloud.fly.dev/v1/*`; dev server mirrors via Vite proxy. */
+/** Proxied as `/api/*` on Vercel → `api.identark.io/v1/*`; dev server mirrors via Vite proxy. */
 export const API_BASE = "/api";
 
 export function apiUrl(path: string) {

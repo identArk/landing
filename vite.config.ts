@@ -4,7 +4,9 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const API_TARGET = "https://identark-cloud.fly.dev/v1";
+const API_TARGET = (process.env.NODE_ENV === "development"
+  ? "http://localhost:8000/v1"
+  : "https://api.identark.io/v1");
 
 export default defineConfig({
   plugins: [
