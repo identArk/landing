@@ -14,31 +14,20 @@ const faqs: { q: string; a: ReactNode }[] = [
     a: "We support OpenAI, Anthropic, Mistral, AWS Bedrock, Azure OpenAI, and Google Gemini. Adding a new provider takes minutes — just register your API key in the vault and start making calls.",
   },
   {
-    q: "What happens if the gateway goes down?",
-    a: (
-      <>
-        Your agent&apos;s LLM calls fail with a typed{" "}
-        <code style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--green)" }}>NetworkError</code> that you handle
-        in your retry logic. We run on Fly.io with health checks and auto-restart. Enterprise customers get SLAs and multi-region
-        failover.
-      </>
-    ),
-  },
-  {
     q: "Do you store my prompts or responses?",
-    a: "No. Audit logs record metadata only: timestamps, token counts, costs, agent IDs. Prompt and response content is never stored. Enterprise customers configure full data retention and deletion policies.",
+    a: "No. Audit logs record metadata only: timestamps, token counts, costs, agent IDs. Prompt and response content is never stored.",
   },
   {
-    q: "How does the open-source SDK relate to IdentArk Cloud?",
-    a: (
-      <>
-        The SDK is MIT licensed and free forever.{" "}
-        <code style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--gold)" }}>DirectGateway</code> works locally with
-        no account.{" "}
-        <code style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--gold)" }}>ControlPlaneGateway</code> connects to
-        our hosted cloud — or you can self-host the control plane for enterprise.
-      </>
-    ),
+    q: "What happens if an agent tries to delete production data?",
+    a: "The operation is intercepted by the gateway. The risk scoring engine calculates a critical score (typically 90–100). The Destructive Guard policy triggers. The operation enters the Human-in-the-Loop approval queue. Your security team receives a real-time alert. They review the full context and either approve with MFA or reject. The database is never touched without explicit human authorisation.",
+  },
+  {
+    q: "Do you support EU AI Act compliance?",
+    a: "Yes. Article 14 of the EU AI Act requires human oversight for high-risk AI systems. IdentArk's Human-in-the-Loop approval system directly satisfies this requirement. Every critical operation requires human review with MFA verification. We also map to Articles 9, 13, 15, and 17. Full mapping documentation is available for auditors.",
+  },
+  {
+    q: "Can I define custom approval rules?",
+    a: "Yes. Policies support risk thresholds, tool name patterns, time-based schedules, and custom conditions via CEL expressions. You can create policies like 'All delete operations on production databases require approval from the CISO during non-business hours.'",
   },
 ];
 

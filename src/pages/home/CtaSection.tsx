@@ -15,26 +15,21 @@ export function CtaSection() {
         <h2>
           Zero secrets.
           <br />
-          Full audit trail.
+          Full governance.
+          <br />
+          Immutable audit trail.
         </h2>
-        <p>We&apos;re onboarding 10 developers for our private beta.</p>
+        <p>Deploy AI agents with the confidence that every critical operation is risk-scored, human-approved, and cryptographically logged.</p>
         <div className="cta-actions">
-          <Link to="/request-access" className="btn btn-green btn-lg">
+          <Link to="/request-access" className="btn btn-gold btn-lg">
             Request Early Access
             <ArrowRight />
           </Link>
-          <a href="https://github.com/identark/sdk" target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-lg">
+          <a href="https://github.com/identark/sdk" target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-lg" style={{ color: "rgba(255,255,255,0.8)", borderColor: "rgba(255,255,255,0.2)" }}>
             View on GitHub
           </a>
         </div>
-        <div
-          className="install-cmd"
-          style={{
-            animation: "fadeSlideIn 0.5s ease-out",
-            animationDelay: "0.3s",
-            animationFillMode: "backwards",
-          }}
-        >
+        <div className="install-cmd">
           <span className="cmd-prompt">$</span>
           pip install identark-sdk
         </div>

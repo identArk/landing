@@ -3,8 +3,9 @@ import { HelmetProvider } from "react-helmet-async";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { HomePage } from "@/pages/home/HomePage";
 import { LoginPage } from "@/pages/LoginPage";
-import { RequestAccessPage } from "@/pages/RequestAccessPage";
 import { SignupPage } from "@/pages/SignupPage";
+import { RequestAccessPage } from "@/pages/RequestAccessPage";
+
 import { VerifyEmailPage } from "@/pages/VerifyEmailPage";
 
 export default function App() {

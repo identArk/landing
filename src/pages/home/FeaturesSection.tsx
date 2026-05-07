@@ -62,22 +62,32 @@ export function FeaturesSection() {
         <div className="bento-card c-4">
           <div className="card-icon">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 6v6l4 2" />
-            </svg>
-          </div>
-          <h3>UK/EU data residency</h3>
-          <p>Azure UK South, AWS London, Mistral EU. Your data stays in the region your contracts require.</p>
-        </div>
-
-        <div className="bento-card c-4">
-          <div className="card-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             </svg>
           </div>
           <h3>MockGateway for testing</h3>
           <p>Built-in test gateway lets you unit test every agent behaviour — no real credentials, no network, no cost.</p>
+        </div>
+
+        <div className="bento-card c-4">
+          <div className="card-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+          </div>
+          <h3>Human-in-the-Loop approvals</h3>
+          <p>High-risk agent operations pause for human review with MFA-verified decisions. Custom policies define what "high risk" means for your organisation.</p>
+        </div>
+
+        <div className="bento-card c-4">
+          <div className="card-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 20V10M18 20V4M6 20v-4" />
+            </svg>
+          </div>
+          <h3>Real-time risk scoring</h3>
+          <p>Every tool call analysed across six dimensions. Critical operations flagged automatically. Low-risk operations approved in 23 milliseconds.</p>
         </div>
       </div>
     </section>

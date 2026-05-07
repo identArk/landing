@@ -8,17 +8,16 @@ function CheckIcon() {
 
 const items = [
   "Published on PyPI",
-  "MIT licensed SDK",
   "Full type coverage",
   "CI passing",
-  "UK/EU data residency",
+  "SOC 2 Type II ready",
 ];
 
 export function TrustBar() {
   return (
     <div className="trust-bar">
       <div className="trust-inner">
-        <span className="trust-label">Built in public</span>
+        <span className="trust-label">Built in London</span>
         <div className="trust-items">
           {items.map((label) => (
             <span key={label} className="trust-item">

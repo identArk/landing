@@ -9,56 +9,64 @@ export function PricingSection() {
 
       <div className="pricing-grid">
         <div className="price-card">
-          <div className="price-tier">Hobby</div>
-          <div className="price-amount">£0</div>
-          <div className="price-desc">Perfect for side projects and trying things out.</div>
+          <div className="price-tier">Starter</div>
+          <div className="price-amount">
+            £99<span className="price-period"> /mo</span>
+          </div>
+          <div className="price-desc">For AI startups landing their first enterprise deal.</div>
           <ul className="price-features">
-            <li>1,000 executions / month</li>
+            <li>5,000 executions / month</li>
             <li>1 organisation</li>
-            <li>All providers</li>
-            <li>Community support</li>
-            <li>7-day audit log</li>
+            <li>All LLM providers</li>
+            <li>Basic risk scoring</li>
+            <li>30-day audit log</li>
+            <li>Email support</li>
           </ul>
-          <Link to="/request-access" className="price-cta btn-outline" style={{ border: "1px solid var(--border-bright)", color: "var(--fg-2)" }}>
-            Get Started
+          <Link to="/request-access" className="price-cta btn-secondary">
+            Request Access
           </Link>
         </div>
 
         <div className="price-card featured">
           <span className="price-badge">Most popular</span>
-          <div className="price-tier">Pro</div>
+          <div className="price-tier">Business</div>
           <div className="price-amount">
-            £15<span className="price-period"> /mo</span>
+            £499<span className="price-period"> /mo</span>
           </div>
-          <div className="price-desc">For professionals and small teams shipping AI products.</div>
+          <div className="price-desc">For teams with compliance deadlines and security questionnaires.</div>
           <ul className="price-features">
-            <li>35,000 executions / month</li>
-            <li>4 organisations</li>
-            <li>All providers</li>
-            <li>Email support</li>
-            <li>90-day audit log</li>
-            <li>Custom cost caps</li>
+            <li>50,000 executions / month</li>
+            <li>5 organisations</li>
+            <li>All LLM providers</li>
+            <li>HITL approval workflows</li>
+            <li>Custom policies with CEL</li>
+            <li>Compliance reports</li>
+            <li>1-year audit log</li>
+            <li>Priority Slack support</li>
           </ul>
-          <Link to="/request-access" className="price-cta btn-green" style={{ background: "var(--green)", color: "#000", fontWeight: 700 }}>
-            Get Started
+          <Link to="/request-access" className="price-cta btn-gold">
+            Request Access
           </Link>
         </div>
 
         <div className="price-card">
           <div className="price-tier">Enterprise</div>
           <div className="price-amount" style={{ fontSize: 36 }}>
-            Custom
+            £2,499+
           </div>
-          <div className="price-desc">For teams with advanced security, compliance, and scale needs.</div>
+          <div className="price-desc">For regulated industries with bespoke compliance requirements.</div>
           <ul className="price-features">
             <li>Unlimited executions</li>
             <li>Unlimited organisations</li>
             <li>SSO / SAML / SCIM</li>
-            <li>99.9% SLA</li>
-            <li>On-prem deployment</li>
-            <li>Dedicated support</li>
+            <li>Advanced risk scoring + anomaly detection</li>
+            <li>Break-glass access</li>
+            <li>SIEM export</li>
+            <li>ISO 27001 & SOC 2 mapping</li>
+            <li>On-prem or private cloud</li>
+            <li>Dedicated account manager</li>
           </ul>
-          <a href="mailto:hello@identark.io" className="price-cta btn-outline" style={{ border: "1px solid var(--border-bright)", color: "var(--fg-2)" }}>
+          <a href="mailto:hello@identark.io" className="price-cta btn-secondary">
             Contact Sales
           </a>
         </div>

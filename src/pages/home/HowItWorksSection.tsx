@@ -23,7 +23,7 @@ export function HowItWorksSection() {
               <h3>Swap two lines of code</h3>
               <p>
                 Replace your OpenAI or Anthropic client with{" "}
-                <code style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--green)" }}>
+                <code style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--brass)" }}>
                   ControlPlaneGateway()
                 </code>
                 . Your agent logic stays identical.
