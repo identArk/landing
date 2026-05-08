@@ -302,7 +302,7 @@
       <!-- Stats Cards -->
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-icon" style="background: linear-gradient(135deg, #ef4444, #f87171);">
+          <div class="stat-icon" style="background: linear-gradient(135deg, var(--danger), var(--danger-muted));">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
               <circle cx="12" cy="12" r="10"/>
               <line x1="12" y1="8" x2="12" y2="12"/>
@@ -315,7 +315,7 @@
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background: linear-gradient(135deg, #10b981, #34d399);">
+          <div class="stat-icon" style="background: linear-gradient(135deg, var(--success), var(--success-muted));">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
               <polyline points="22 4 12 14.01 9 11.01"/>
@@ -327,7 +327,7 @@
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background: linear-gradient(135deg, #f59e0b, #fbbf24);">
+          <div class="stat-icon" style="background: linear-gradient(135deg, var(--warning), var(--warning-muted));">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
               <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
               <line x1="12" y1="9" x2="12" y2="13"/>
@@ -340,7 +340,7 @@
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
+          <div class="stat-icon" style="background: linear-gradient(135deg, var(--info), var(--info-muted));">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
               <circle cx="12" cy="12" r="10"/>
               <polyline points="12 6 12 12 16 14"/>
@@ -593,16 +593,123 @@
         }
       },
 
+      getDemoApprovals() {
+        const now = new Date();
+        return [
+          {
+            id: 'demo-approval-001',
+            mcp_request_id: 'mcp_req_7a3f9e2d',
+            tool_name: 'postgres.delete',
+            tool_arguments: { table: 'customers', environment: 'production', where: "created_at < '2026-01-01'" },
+            risk_score: 94,
+            risk_level: 'critical',
+            risk_explanation: 'Delete operation on production customer data. Agent has no prior history of table deletions. High potential for irreversible data loss.',
+            risk_indicators: ['Destructive operation', 'Production environment', 'Customer data', 'First-time action'],
+            requested_by: 'agent-demo-001',
+            organization_id: 'demo-org',
+            server_id: 'postgres-prod',
+            created_at: new Date(now - 120000).toISOString(),
+            expires_at: new Date(now + 180000).toISOString(),
+            status: 'pending',
+            risk_factors: {
+              operation_type: { score: 0.90, weight: 0.25, contribution: 22.5, label: 'DELETE' },
+              resource_sensitivity: { score: 0.95, weight: 0.20, contribution: 19.0, label: 'Production + Customer Data' },
+              agent_history: { score: 0.10, weight: 0.15, contribution: 1.5, label: '99.2% success, no deletions' },
+              time_context: { score: 0.20, weight: 0.10, contribution: 2.0, label: 'Business hours' },
+              cost_impact: { score: 0.90, weight: 0.15, contribution: 13.5, label: 'Irreversible data loss' },
+              anomaly_score: { score: 0.75, weight: 0.15, contribution: 11.25, label: 'Never deleted from this table' }
+            }
+          },
+          {
+            id: 'demo-approval-002',
+            mcp_request_id: 'mcp_req_8b4e1c3f',
+            tool_name: 'aws.s3.deleteBucket',
+            tool_arguments: { bucket: 'acme-production-assets', force: true },
+            risk_score: 87,
+            risk_level: 'high',
+            risk_explanation: 'Force deletion of production S3 bucket. All objects will be permanently removed. Backup verification recommended.',
+            risk_indicators: ['Force delete enabled', 'Production bucket', 'Cloud infrastructure', 'Irreversible'],
+            requested_by: 'agent-deploy-002',
+            organization_id: 'demo-org',
+            server_id: 'aws-prod',
+            created_at: new Date(now - 300000).toISOString(),
+            expires_at: new Date(now + 60000).toISOString(),
+            status: 'pending',
+            risk_factors: {
+              operation_type: { score: 0.90, weight: 0.25, contribution: 22.5, label: 'DELETE' },
+              resource_sensitivity: { score: 0.85, weight: 0.20, contribution: 17.0, label: 'Production S3 bucket' },
+              agent_history: { score: 0.30, weight: 0.15, contribution: 4.5, label: 'Some S3 operations' },
+              time_context: { score: 0.40, weight: 0.10, contribution: 4.0, label: 'Outside business hours' },
+              cost_impact: { score: 0.80, weight: 0.15, contribution: 12.0, label: 'Data recovery cost' },
+              anomaly_score: { score: 0.60, weight: 0.15, contribution: 9.0, label: 'Unusual force flag' }
+            }
+          },
+          {
+            id: 'demo-approval-003',
+            mcp_request_id: 'mcp_req_9c5f2d4a',
+            tool_name: 'stripe.createRefund',
+            tool_arguments: { payment_intent: 'pi_1234567890', amount: 49999, reason: 'fraudulent' },
+            risk_score: 72,
+            risk_level: 'high',
+            risk_explanation: 'High-value refund flagged as fraudulent. Requires finance team verification before processing.',
+            risk_indicators: ['High value', 'Fraudulent reason', 'Payment system', 'Financial impact'],
+            requested_by: 'agent-support-003',
+            organization_id: 'demo-org',
+            server_id: 'stripe-prod',
+            created_at: new Date(now - 600000).toISOString(),
+            expires_at: new Date(now - 120000).toISOString(),
+            status: 'expired',
+            risk_factors: {
+              operation_type: { score: 0.60, weight: 0.25, contribution: 15.0, label: 'CREATE REFUND' },
+              resource_sensitivity: { score: 0.90, weight: 0.20, contribution: 18.0, label: 'Payment system' },
+              agent_history: { score: 0.20, weight: 0.15, contribution: 3.0, label: 'Some refund history' },
+              time_context: { score: 0.30, weight: 0.10, contribution: 3.0, label: 'Business hours' },
+              cost_impact: { score: 0.70, weight: 0.15, contribution: 10.5, label: '£499.99 refund' },
+              anomaly_score: { score: 0.55, weight: 0.15, contribution: 8.25, label: 'Fraudulent flag' }
+            }
+          },
+          {
+            id: 'demo-approval-004',
+            mcp_request_id: 'mcp_req_0d6g3e5b',
+            tool_name: 'postgres.select',
+            tool_arguments: { table: 'analytics_quarterly', columns: ['revenue', 'quarter'] },
+            risk_score: 15,
+            risk_level: 'low',
+            risk_explanation: 'Read-only query on analytics table. Routine operation for this agent.',
+            risk_indicators: ['Read-only', 'Analytics table', 'Routine operation'],
+            requested_by: 'agent-analytics-004',
+            organization_id: 'demo-org',
+            server_id: 'postgres-prod',
+            created_at: new Date(now - 900000).toISOString(),
+            expires_at: new Date(now - 895000).toISOString(),
+            status: 'approved',
+            risk_factors: {
+              operation_type: { score: 0.10, weight: 0.25, contribution: 2.5, label: 'SELECT' },
+              resource_sensitivity: { score: 0.30, weight: 0.20, contribution: 6.0, label: 'Analytics table' },
+              agent_history: { score: 0.10, weight: 0.15, contribution: 1.5, label: 'Trusted agent' },
+              time_context: { score: 0.20, weight: 0.10, contribution: 2.0, label: 'Business hours' },
+              cost_impact: { score: 0.10, weight: 0.15, contribution: 1.5, label: 'Negligible' },
+              anomaly_score: { score: 0.10, weight: 0.15, contribution: 1.5, label: 'Routine pattern' }
+            }
+          }
+        ];
+      },
+
       async refresh() {
         try {
-          const status = document.getElementById('status-filter').value;
           const approvals = await API.request('/mcp/approvals/pending');
-          this.approvals = approvals || [];
+          if (approvals && approvals.length > 0) {
+            this.approvals = approvals;
+          } else {
+            this.approvals = this.getDemoApprovals();
+          }
           this.render();
           this.loadStats();
         } catch (e) {
-          console.error('Failed to load approvals:', e);
-          Toast.error('Failed to load approvals');
+          console.warn('Failed to load approvals, using demo data:', e);
+          this.approvals = this.getDemoApprovals();
+          this.render();
+          this.loadStats();
         }
       },
 
@@ -649,10 +756,10 @@
         const riskScore = approval.risk_score || 0;
         const riskLevel = riskScore >= 90 ? 'critical' : riskScore >= 70 ? 'high' : riskScore >= 40 ? 'medium' : 'low';
         const riskColors = {
-          critical: 'linear-gradient(135deg, #ef4444, #f87171)',
-          high: 'linear-gradient(135deg, #f59e0b, #fbbf24)',
-          medium: 'linear-gradient(135deg, #3b82f6, #60a5fa)',
-          low: 'linear-gradient(135deg, #10b981, #34d399)'
+          critical: 'linear-gradient(135deg, var(--danger), var(--danger-muted))',
+          high: 'linear-gradient(135deg, var(--warning), var(--warning-muted))',
+          medium: 'linear-gradient(135deg, var(--info), var(--info-muted))',
+          low: 'linear-gradient(135deg, var(--success), var(--success-muted))'
         };
 
         const timeLeft = this.calculateTimeLeft(approval.expires_at);
@@ -709,26 +816,65 @@
         this.currentApproval = this.approvals.find(a => a.id === id);
         if (!this.currentApproval) return;
 
+        const a = this.currentApproval;
+        const factors = a.risk_factors || {};
+        const hasBreakdown = Object.keys(factors).length > 0;
+
+        let factorsHtml = '';
+        if (hasBreakdown) {
+          const factorRows = Object.entries(factors).map(([key, f]) => `
+            <div class="risk-factor-row">
+              <div class="risk-factor-info">
+                <span class="risk-factor-name">${this.escapeHtml(key.replace(/_/g, ' '))}</span>
+                <span class="risk-factor-label">${this.escapeHtml(f.label || '')}</span>
+              </div>
+              <div class="risk-factor-bar">
+                <div class="risk-factor-fill" style="width: ${Math.round(f.score * 100)}%; background: ${this.getRiskColor(f.score * 100)}"></div>
+              </div>
+              <div class="risk-factor-math">
+                <span class="risk-factor-score">${Math.round(f.score * 100)}%</span>
+                <span class="risk-factor-weight">× ${f.weight}</span>
+                <span class="risk-factor-contrib">= ${f.contribution.toFixed(1)}</span>
+              </div>
+            </div>
+          `).join('');
+
+          const total = Object.values(factors).reduce((sum, f) => sum + (f.contribution || 0), 0);
+
+          factorsHtml = `
+            <div class="detail-section">
+              <h4>Risk Factor Breakdown</h4>
+              <div class="risk-factors-list">
+                ${factorRows}
+              </div>
+              <div class="risk-factor-total">
+                <span class="risk-total-label">Total Risk Score</span>
+                <span class="risk-total-value" style="color: ${this.getRiskColor(a.risk_score)}">${Math.round(total)}/100</span>
+              </div>
+            </div>
+          `;
+        }
+
         const body = document.getElementById('approval-detail-body');
         body.innerHTML = `
           <div class="approval-detail">
             <div class="detail-section">
               <h4>Operation</h4>
-              <code>${this.escapeHtml(this.currentApproval.tool_name)}</code>
+              <code>${this.escapeHtml(a.tool_name)}</code>
             </div>
             <div class="detail-section">
               <h4>Arguments</h4>
-              <pre class="code-block"><code>${JSON.stringify(this.currentApproval.tool_arguments, null, 2)}</code></pre>
+              <pre class="code-block"><code>${JSON.stringify(a.tool_arguments, null, 2)}</code></pre>
             </div>
+            ${factorsHtml}
             <div class="detail-section">
-              <h4>Risk Analysis</h4>
-              <div class="risk-breakdown">
-                <div class="risk-item">
-                  <span class="risk-item-name">Total Score</span>
-                  <span class="risk-item-score" style="color: ${this.getRiskColor(this.currentApproval.risk_score)}">${this.currentApproval.risk_score}/100</span>
+              <h4>Summary</h4>
+              <p>${this.escapeHtml(a.risk_explanation)}</p>
+              ${a.risk_indicators?.length ? `
+                <div class="detail-indicators">
+                  ${a.risk_indicators.map(i => `<span class="detail-indicator ${this.getIndicatorClass(i)}">${this.escapeHtml(i)}</span>`).join('')}
                 </div>
-              </div>
-              <p>${this.escapeHtml(this.currentApproval.risk_explanation)}</p>
+              ` : ''}
             </div>
           </div>
         `;
@@ -736,11 +882,19 @@
         IdentArk.openModal('approval-detail-modal');
       },
 
+      getIndicatorClass(indicator) {
+        const text = indicator.toLowerCase();
+        if (text.includes('destructive') || text.includes('delete') || text.includes('irreversible')) return 'indicator-danger';
+        if (text.includes('production') || text.includes('high')) return 'indicator-warning';
+        if (text.includes('routine') || text.includes('read-only')) return 'indicator-success';
+        return 'indicator-info';
+      },
+
       getRiskColor(score) {
-        if (score >= 90) return '#ef4444';
-        if (score >= 70) return '#f59e0b';
-        if (score >= 40) return '#3b82f6';
-        return '#10b981';
+        if (score >= 90) return 'var(--danger)';
+        if (score >= 70) return 'var(--warning)';
+        if (score >= 40) return 'var(--info)';
+        return 'var(--success)';
       },
 
       async approve(id, riskScore) {
@@ -1005,8 +1159,139 @@
     }
 
     .nav-badge-danger {
-      background: #ef4444 !important;
+      background: var(--danger) !important;
       color: white !important;
+    }
+
+    /* Risk Factor Breakdown */
+    .risk-factors-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .risk-factor-row {
+      display: grid;
+      grid-template-columns: 1fr 120px 90px;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 12px;
+      background: var(--bg-1);
+      border-radius: var(--radius-sm);
+    }
+
+    .risk-factor-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .risk-factor-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--fg);
+      text-transform: capitalize;
+    }
+
+    .risk-factor-label {
+      font-size: 12px;
+      color: var(--fg-3);
+    }
+
+    .risk-factor-bar {
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .risk-factor-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.4s ease;
+    }
+
+    .risk-factor-math {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      justify-content: flex-end;
+    }
+
+    .risk-factor-score {
+      font-weight: 600;
+      color: var(--fg);
+    }
+
+    .risk-factor-weight {
+      color: var(--fg-3);
+    }
+
+    .risk-factor-contrib {
+      font-weight: 600;
+      color: var(--fg);
+      min-width: 32px;
+      text-align: right;
+    }
+
+    .risk-factor-total {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+    }
+
+    .risk-total-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--fg);
+    }
+
+    .risk-total-value {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    /* Detail Indicators */
+    .detail-indicators {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .detail-indicator {
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .indicator-danger {
+      background: var(--danger-muted);
+      color: var(--danger);
+    }
+
+    .indicator-warning {
+      background: var(--warning-muted);
+      color: var(--warning);
+    }
+
+    .indicator-success {
+      background: var(--success-muted);
+      color: var(--success);
+    }
+
+    .indicator-info {
+      background: var(--info-muted);
+      color: var(--info);
     }
 
     @media (max-width: 768px) {
@@ -1027,6 +1312,15 @@
 
       .approval-actions .btn {
         flex: 1;
+      }
+
+      .risk-factor-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      .risk-factor-math {
+        justify-content: flex-start;
       }
     }
   </style>

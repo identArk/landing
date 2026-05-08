@@ -41,6 +41,8 @@
   --warning-muted: rgba(180,83,9,0.1);
   --info: #2563eb;
   --info-muted: rgba(37,99,235,0.1);
+  --success: #15803d;
+  --success-muted: rgba(21,128,61,0.1);
 
   /* Typography */
   --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
