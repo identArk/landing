@@ -24,6 +24,7 @@
     { "source": "/docs", "destination": "https://github.com/identark/sdk#readme", "permanent": false }
   ],
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://api.identark.io/v1/$1" }
+    { "source": "/api/(.*)", "destination": "https://api.identark.io/v1/$1" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
