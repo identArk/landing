@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — IdentArk</title>
+  <meta name="robots" content="noindex, nofollow">
+
+  <!-- Firebase Auth SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #0A0A0A;
+      --surface: #121212;
+      --surface-2: #1A1A1A;
+      --border: rgba(255,255,255,0.08);
+      --border-bright: rgba(212,168,83,0.25);
+      --fg: #FFFFFF;
+      --fg-2: #A3A3A3;
+      --fg-3: #525252;
+      --gold: #D4A853;
+      --gold-bright: #E5BE6A;
+      --gold-dim: rgba(212,168,83,0.12);
+      --gold-glow: rgba(212,168,83,0.35);
+      --green: #22C55E;
+      --green-dim: rgba(34,197,94,0.12);
+      --red: #EF4444;
+      --red-dim: rgba(239,68,68,0.12);
+      --amber: #F59E0B;
+      --amber-dim: rgba(245,158,11,0.12);
+      --blue: #3B82F6;
+      --blue-dim: rgba(59,130,246,0.12);
+      --mono: 'Geist Mono', monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Geist', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+    a { color: var(--gold); text-decoration: none; }
+    a:hover { color: var(--gold-bright); }
+
+    /* ── HEADER ── */
+    .header {
+      padding: 0 32px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: rgba(10,10,10,0.85);
+      backdrop-filter: blur(12px);
+      z-index: 50;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .logo-mark {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--gold) 0%, var(--gold-bright) 100%);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 8px var(--gold-glow);
+    }
+    .logo-mark svg { width: 16px; height: 16px; }
+    .logo-text { font-weight: 700; font-size: 16px; letter-spacing: -0.02em; }
+    .logo-badge {
+      font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+      padding: 2px 8px; border-radius: 4px;
+      background: var(--gold-dim); color: var(--gold);
+    }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    .user-email { font-size: 13px; color: var(--fg-2); }
+    .btn-logout {
+      font-size: 12px; color: var(--fg-3); cursor: pointer; background: none; border: none;
+      font-family: inherit; padding: 6px 12px; border-radius: 6px; transition: all 0.15s;
+    }
+    .btn-logout:hover { color: var(--fg); background: var(--surface-2); }
+
+    /* ── LAYOUT ── */
+    .layout { display: flex; min-height: calc(100vh - 56px); }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: 220px; border-right: 1px solid var(--border);
+      padding: 20px 12px; flex-shrink: 0;
+    }
+    .nav-section { margin-bottom: 24px; }
+    .nav-label {
+      font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--fg-3); padding: 0 12px; margin-bottom: 8px;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; border-radius: 8px; cursor: pointer;
+      font-size: 13px; font-weight: 500; color: var(--fg-2);
+      transition: all 0.15s; border: none; background: none; width: 100%;
+      font-family: inherit; text-align: left;
+    }
+    .nav-item:hover { background: var(--surface-2); color: var(--fg); }
+    .nav-item.active { background: var(--gold-dim); color: var(--gold); }
+    .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .nav-count {
+      margin-left: auto; font-size: 11px; font-family: var(--mono);
+      background: var(--surface-2); padding: 1px 6px; border-radius: 4px; color: var(--fg-3);
+    }
+    .nav-count.pending { background: var(--amber-dim); color: var(--amber); }
+
+    /* ── MAIN ── */
+    .main { flex: 1; padding: 28px 32px; overflow-y: auto; max-width: 1100px; }
+
+    /* ── PAGE HEADER ── */
+    .page-header { margin-bottom: 24px; }
+    .page-title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+    .page-desc { font-size: 14px; color: var(--fg-2); margin-top: 4px; }
+
+    /* ── STATS GRID ── */
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px;
+      transition: border-color 0.15s;
+    }
+    .stat-card:hover { border-color: var(--border-bright); }
+    .stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--fg-3); }
+    .stat-value { font-size: 28px; font-weight: 700; margin-top: 4px; font-family: var(--mono); }
+    .stat-value.gold { color: var(--gold); }
+    .stat-value.green { color: var(--green); }
+    .stat-sub { font-size: 11px; color: var(--fg-3); margin-top: 2px; }
+
+    /* ── TABLE ── */
+    .table-wrap {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
+    }
+    .table-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px; border-bottom: 1px solid var(--border);
+    }
+    .table-title { font-size: 14px; font-weight: 600; }
+    .table-actions { display: flex; gap: 8px; }
+
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--fg-3); padding: 10px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    tbody td {
+      padding: 12px 20px; font-size: 13px; border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,0.015); }
+
+    .cell-email { font-family: var(--mono); font-size: 12px; color: var(--fg-2); }
+    .cell-company { font-weight: 500; }
+    .cell-date { font-family: var(--mono); font-size: 12px; color: var(--fg-3); }
+
+    /* ── STATUS BADGES ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 6px;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .badge-pending { background: var(--amber-dim); color: var(--amber); }
+    .badge-approved { background: var(--green-dim); color: var(--green); }
+    .badge-rejected { background: var(--red-dim); color: var(--red); }
+    .badge-active { background: var(--green-dim); color: var(--green); }
+    .badge-inactive { background: var(--red-dim); color: var(--red); }
+
+    .badge-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+    }
+    .badge-pending .badge-dot { background: var(--amber); }
+    .badge-approved .badge-dot { background: var(--green); }
+    .badge-rejected .badge-dot { background: var(--red); }
+
+    /* ── ACTION BUTTONS ── */
+    .btn {
+      font-size: 12px; font-weight: 600; font-family: inherit;
+      padding: 6px 14px; border-radius: 6px; cursor: pointer;
+      border: 1px solid transparent; transition: all 0.15s;
+    }
+    .btn-approve {
+      background: var(--green-dim); color: var(--green); border-color: rgba(34,197,94,0.2);
+    }
+    .btn-approve:hover { background: var(--green); color: #000; transform: translateY(-1px); }
+    .btn-reject {
+      background: var(--red-dim); color: var(--red); border-color: rgba(239,68,68,0.2);
+    }
+    .btn-reject:hover { background: var(--red); color: #fff; transform: translateY(-1px); }
+    .btn-gold {
+      background: var(--gold); color: #000; font-weight: 700; border: none;
+    }
+    .btn-gold:hover { background: var(--gold-bright); transform: translateY(-1px); box-shadow: 0 4px 16px var(--gold-glow); }
+    .btn-outline {
+      background: transparent; color: var(--fg-2); border-color: var(--border);
+    }
+    .btn-outline:hover { border-color: var(--border-bright); color: var(--fg); }
+    .btn-sm { padding: 4px 10px; font-size: 11px; }
+
+    .action-group { display: flex; gap: 6px; }
+
+    /* ── FILTER TABS ── */
+    .filter-tabs { display: flex; gap: 4px; }
+    .filter-tab {
+      font-size: 12px; font-weight: 500; padding: 5px 12px; border-radius: 6px;
+      cursor: pointer; border: none; background: none; color: var(--fg-3);
+      font-family: inherit; transition: all 0.15s;
+    }
+    .filter-tab:hover { color: var(--fg-2); background: var(--surface-2); }
+    .filter-tab.active { background: var(--gold-dim); color: var(--gold); }
+
+    /* ── EMPTY STATE ── */
+    .empty-state {
+      text-align: center; padding: 48px 20px; color: var(--fg-3); font-size: 14px;
+    }
+    .empty-state svg { width: 40px; height: 40px; margin-bottom: 12px; opacity: 0.3; }
+
+    /* ── LOGIN SCREEN ── */
+    .login-screen {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .login-box {
+      width: 100%; max-width: 380px; text-align: center;
+    }
+    .login-logo { margin-bottom: 32px; }
+    .login-logo .logo-mark { width: 48px; height: 48px; margin: 0 auto 16px; border-radius: 10px; }
+    .login-logo .logo-mark svg { width: 24px; height: 24px; }
+    .login-logo h1 { font-size: 24px; font-weight: 700; }
+    .login-logo p { font-size: 14px; color: var(--fg-2); margin-top: 4px; }
+    .login-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px;
+    }
+    .login-btn {
+      width: 100%; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 600;
+      cursor: pointer; border: 1px solid var(--border-bright); background: var(--surface-2);
+      color: var(--fg); font-family: inherit; display: flex; align-items: center;
+      justify-content: center; gap: 10px; transition: all 0.15s; margin-bottom: 10px;
+    }
+    .login-btn:hover { border-color: var(--gold); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+    .login-btn.github { background: #fff; color: #000; border-color: #fff; }
+    .login-btn.github:hover { background: #e5e5e5; }
+    .login-error { color: var(--red); font-size: 13px; margin-top: 16px; }
+
+    /* ── TOAST ── */
+    .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 100; display: flex; flex-direction: column; gap: 8px; }
+    .toast {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 20px; font-size: 13px; display: flex; align-items: center; gap: 8px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5); animation: slideIn 0.3s ease-out;
+      max-width: 360px;
+    }
+    .toast.success { border-color: rgba(34,197,94,0.3); }
+    .toast.error { border-color: rgba(239,68,68,0.3); }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── LOADING ── */
+    .loading { text-align: center; padding: 48px; color: var(--fg-3); }
+    .spinner {
+      width: 24px; height: 24px; border: 2px solid var(--border);
+      border-top-color: var(--gold); border-radius: 50%;
+      animation: spin 0.6s linear infinite; margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .header { padding: 0 16px; }
+      .main { padding: 20px 16px; }
+    }
+
+    /* ── HIDDEN ── */
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- ═══ LOGIN SCREEN ═══ -->
+  <div id="login-screen" class="login-screen">
+    <div class="login-box">
+      <div class="login-logo">
+        <div class="logo-mark">
+          <svg fill="none" stroke="#000" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        </div>
+        <h1>IdentArk Admin</h1>
+        <p>Manage your platform</p>
+      </div>
+      <div class="login-card">
+        <button class="login-btn github" onclick="loginWithGitHub()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          Continue with GitHub
+        </button>
+        <button class="login-btn" onclick="loginWithGoogle()">
+          <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          Continue with Google
+        </button>
+        <div id="login-error" class="login-error hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ ADMIN DASHBOARD ═══ -->
+  <div id="admin-app" class="hidden">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-left">
+        <div class="logo-mark">
+          <svg fill="none" stroke="#000" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        </div>
+        <span class="logo-text">IdentArk</span>
+        <span class="logo-badge">Admin</span>
+      </div>
+      <div class="header-right">
+        <span id="user-email" class="user-email"></span>
+        <button class="btn-logout" onclick="logout()">Sign out</button>
+      </div>
+    </div>
+
+    <div class="layout">
+      <!-- Sidebar -->
+      <nav class="sidebar">
+        <div class="nav-section">
+          <div class="nav-label">Overview</div>
+          <button class="nav-item active" data-page="overview" onclick="showPage('overview')">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+            Dashboard
+          </button>
+        </div>
+        <div class="nav-section">
+          <div class="nav-label">Manage</div>
+          <button class="nav-item" data-page="waitlist" onclick="showPage('waitlist')">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            Waitlist
+            <span id="nav-pending-count" class="nav-count pending">0</span>
+          </button>
+          <button class="nav-item" data-page="agents" onclick="showPage('agents')">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            Agents
+            <span id="nav-agent-count" class="nav-count">0</span>
+          </button>
+          <button class="nav-item" data-page="sessions" onclick="showPage('sessions')">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            Sessions
+          </button>
+        </div>
+        <div class="nav-section" style="margin-top:auto;">
+          <div class="nav-label">Links</div>
+          <a href="https://identark-demo.fly.dev" target="_blank" class="nav-item">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            Live Demo
+          </a>
+          <a href="https://identark.io" target="_blank" class="nav-item">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"/></svg>
+            Website
+          </a>
+        </div>
+      </nav>
+
+      <!-- Main Content -->
+      <main class="main">
+
+        <!-- ═══ OVERVIEW PAGE ═══ -->
+        <div id="page-overview">
+          <div class="page-header">
+            <h2 class="page-title">Dashboard</h2>
+            <p class="page-desc">Platform overview and key metrics</p>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-label">Waitlist</div>
+              <div id="stat-total" class="stat-value">--</div>
+              <div class="stat-sub">total requests</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Pending</div>
+              <div id="stat-pending" class="stat-value gold">--</div>
+              <div class="stat-sub">awaiting review</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Approved</div>
+              <div id="stat-approved" class="stat-value green">--</div>
+              <div class="stat-sub">granted access</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">This Week</div>
+              <div id="stat-week" class="stat-value">--</div>
+              <div class="stat-sub">new signups</div>
+            </div>
+          </div>
+
+          <!-- Recent Waitlist -->
+          <div class="table-wrap">
+            <div class="table-header">
+              <span class="table-title">Recent Waitlist Requests</span>
+              <button class="btn btn-outline btn-sm" onclick="showPage('waitlist')">View all</button>
+            </div>
+            <table>
+              <thead><tr><th>Name</th><th>Email</th><th>Company</th><th>Status</th><th>Date</th><th></th></tr></thead>
+              <tbody id="overview-waitlist-body">
+                <tr><td colspan="6"><div class="loading"><div class="spinner"></div>Loading...</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ═══ WAITLIST PAGE ═══ -->
+        <div id="page-waitlist" class="hidden">
+          <div class="page-header">
+            <h2 class="page-title">Waitlist</h2>
+            <p class="page-desc">Review and manage access requests</p>
+          </div>
+          <div class="table-wrap">
+            <div class="table-header">
+              <div class="filter-tabs">
+                <button class="filter-tab active" onclick="filterWaitlist('all', this)">All</button>
+                <button class="filter-tab" onclick="filterWaitlist('pending', this)">Pending</button>
+                <button class="filter-tab" onclick="filterWaitlist('approved', this)">Approved</button>
+                <button class="filter-tab" onclick="filterWaitlist('rejected', this)">Rejected</button>
+              </div>
+              <button class="btn btn-outline btn-sm" onclick="loadWaitlist()">Refresh</button>
+            </div>
+            <table>
+              <thead><tr><th>Name</th><th>Email</th><th>Company</th><th>Building</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+              <tbody id="waitlist-body">
+                <tr><td colspan="7"><div class="loading"><div class="spinner"></div>Loading...</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ═══ AGENTS PAGE ═══ -->
+        <div id="page-agents" class="hidden">
+          <div class="page-header">
+            <h2 class="page-title">Agents</h2>
+            <p class="page-desc">Registered agents and their status</p>
+          </div>
+          <div class="table-wrap">
+            <div class="table-header">
+              <span class="table-title">All Agents</span>
+              <button class="btn btn-outline btn-sm" onclick="loadAgents()">Refresh</button>
+            </div>
+            <table>
+              <thead><tr><th>Name</th><th>Model</th><th>Provider</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+              <tbody id="agents-body">
+                <tr><td colspan="6"><div class="loading"><div class="spinner"></div>Loading...</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ═══ SESSIONS PAGE ═══ -->
+        <div id="page-sessions" class="hidden">
+          <div class="page-header">
+            <h2 class="page-title">Sessions</h2>
+            <p class="page-desc">LLM session history and cost tracking</p>
+          </div>
+          <div class="table-wrap">
+            <div class="table-header">
+              <span class="table-title">Recent Sessions</span>
+              <button class="btn btn-outline btn-sm" onclick="loadSessions()">Refresh</button>
+            </div>
+            <table>
+              <thead><tr><th>Agent</th><th>Model</th><th>Messages</th><th>Cost</th><th>Created</th></tr></thead>
+              <tbody id="sessions-body">
+                <tr><td colspan="5"><div class="loading"><div class="spinner"></div>Loading...</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script>
+    // ── Config ──
+    const firebaseConfig = {
+      apiKey: "AIzaSyAXRwmezmtd_BH2H1KBUwsXcalb-gNQZWI",
+      authDomain: "identark-2a096.firebaseapp.com",
+      projectId: "identark-2a096",
+      storageBucket: "identark-2a096.firebasestorage.app",
+      messagingSenderId: "213407896930",
+      appId: "1:213407896930:web:4142fcd2a07582558e883b"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? 'http://localhost:8000'
+      : 'https://api.identark.io';
+
+    let currentUser = null;
+    let idToken = null;
+    let waitlistData = [];
+    let currentFilter = 'all';
+
+    // ── Auth ──
+    auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        currentUser = user;
+        idToken = await user.getIdToken();
+        document.getElementById('user-email').textContent = user.email;
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('admin-app').classList.remove('hidden');
+        loadDashboard();
+      } else {
+        document.getElementById('login-screen').classList.remove('hidden');
+        document.getElementById('admin-app').classList.add('hidden');
+      }
+    });
+
+    async function loginWithGitHub() {
+      try {
+        const provider = new firebase.auth.GithubAuthProvider();
+        await auth.signInWithPopup(provider);
+      } catch (e) {
+        showLoginError(e.message);
+      }
+    }
+
+    async function loginWithGoogle() {
+      try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        await auth.signInWithPopup(provider);
+      } catch (e) {
+        showLoginError(e.message);
+      }
+    }
+
+    function logout() {
+      auth.signOut();
+    }
+
+    function showLoginError(msg) {
+      const el = document.getElementById('login-error');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+
+    // ── API Helpers ──
+    async function api(path, options = {}) {
+      if (!idToken) idToken = await currentUser.getIdToken(true);
+      const res = await fetch(`${API_BASE}/v1${path}`, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+          ...(options.headers || {}),
+        },
+        credentials: 'include',
+      });
+      if (res.status === 401) {
+        idToken = await currentUser.getIdToken(true);
+        return api(path, options);
+      }
+      return res;
+    }
+
+    // ── Navigation ──
+    function showPage(page) {
+      document.querySelectorAll('[id^="page-"]').forEach(p => p.classList.add('hidden'));
+      document.getElementById(`page-${page}`).classList.remove('hidden');
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
+
+      if (page === 'waitlist') loadWaitlist();
+      if (page === 'agents') loadAgents();
+      if (page === 'sessions') loadSessions();
+    }
+
+    // ── Dashboard ──
+    async function loadDashboard() {
+      try {
+        // First try to login/register with the backend
+        await api('/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ id_token: idToken }),
+        });
+      } catch (e) { /* ignore — might already be registered */ }
+
+      loadWaitlistStats();
+    }
+
+    // ── Waitlist ──
+    async function loadWaitlistStats() {
+      try {
+        const res = await api('/waitlist');
+        if (res.status === 403) {
+          toast('Access denied — your account is not an admin. Contact the platform owner.', 'error');
+          return;
+        }
+        if (!res.ok) throw new Error('Failed to load waitlist');
+        const data = await res.json();
+        waitlistData = data.entries || [];
+
+        document.getElementById('stat-total').textContent = data.total || 0;
+        document.getElementById('stat-pending').textContent = data.pending || 0;
+        document.getElementById('stat-approved').textContent = data.approved || 0;
+        document.getElementById('stat-week').textContent = data.this_week || 0;
+        document.getElementById('nav-pending-count').textContent = data.pending || 0;
+
+        renderOverviewWaitlist(waitlistData.slice(0, 5));
+      } catch (e) {
+        console.error('Waitlist error:', e);
+        toast('Failed to load waitlist', 'error');
+      }
+    }
+
+    async function loadWaitlist() {
+      await loadWaitlistStats();
+      renderWaitlist(waitlistData, currentFilter);
+    }
+
+    function filterWaitlist(filter, btn) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+      btn?.classList.add('active');
+      renderWaitlist(waitlistData, filter);
+    }
+
+    function renderOverviewWaitlist(entries) {
+      const body = document.getElementById('overview-waitlist-body');
+      if (!entries.length) {
+        body.innerHTML = '<tr><td colspan="6"><div class="empty-state">No waitlist entries yet</div></td></tr>';
+        return;
+      }
+      body.innerHTML = entries.map(e => `
+        <tr>
+          <td class="cell-company">${esc(e.name)}</td>
+          <td class="cell-email">${esc(e.email)}</td>
+          <td>${esc(e.company)}</td>
+          <td>${statusBadge(e.status)}</td>
+          <td class="cell-date">${formatDate(e.created_at)}</td>
+          <td>${e.status === 'pending' ? `
+            <div class="action-group">
+              <button class="btn btn-approve btn-sm" onclick="approveEntry('${e.id}')">Approve</button>
+              <button class="btn btn-reject btn-sm" onclick="rejectEntry('${e.id}')">Reject</button>
+            </div>` : ''}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function renderWaitlist(entries, filter) {
+      const filtered = filter === 'all' ? entries : entries.filter(e => e.status === filter);
+      const body = document.getElementById('waitlist-body');
+      if (!filtered.length) {
+        body.innerHTML = `<tr><td colspan="7"><div class="empty-state">No ${filter === 'all' ? '' : filter} entries</div></td></tr>`;
+        return;
+      }
+      body.innerHTML = filtered.map(e => `
+        <tr>
+          <td class="cell-company">${esc(e.name)}</td>
+          <td class="cell-email">${esc(e.email)}</td>
+          <td>${esc(e.company)}</td>
+          <td style="max-width:200px;font-size:12px;color:var(--fg-2)">${esc(e.building?.substring(0, 80) || '--')}${e.building?.length > 80 ? '...' : ''}</td>
+          <td>${statusBadge(e.status)}</td>
+          <td class="cell-date">${formatDate(e.created_at)}</td>
+          <td>
+            ${e.status === 'pending' ? `
+              <div class="action-group">
+                <button class="btn btn-approve btn-sm" onclick="approveEntry('${e.id}')">Approve</button>
+                <button class="btn btn-reject btn-sm" onclick="rejectEntry('${e.id}')">Reject</button>
+              </div>` : `<span style="font-size:12px;color:var(--fg-3)">${e.status}</span>`}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function approveEntry(id) {
+      try {
+        const res = await api(`/waitlist/${id}/approve`, { method: 'POST', body: '{}' });
+        if (!res.ok) throw new Error('Approve failed');
+        toast('Access approved', 'success');
+        loadWaitlist();
+      } catch (e) {
+        toast('Failed to approve: ' + e.message, 'error');
+      }
+    }
+
+    async function rejectEntry(id) {
+      try {
+        const res = await api(`/waitlist/${id}/reject`, { method: 'POST', body: '{}' });
+        if (!res.ok) throw new Error('Reject failed');
+        toast('Access rejected', 'success');
+        loadWaitlist();
+      } catch (e) {
+        toast('Failed to reject: ' + e.message, 'error');
+      }
+    }
+
+    // ── Agents ──
+    async function loadAgents() {
+      try {
+        const res = await api('/agents');
+        if (!res.ok) { renderAgentsEmpty(); return; }
+        const agents = await res.json();
+        document.getElementById('nav-agent-count').textContent = agents.length;
+        renderAgents(agents);
+      } catch (e) {
+        renderAgentsEmpty();
+      }
+    }
+
+    function renderAgents(agents) {
+      const body = document.getElementById('agents-body');
+      if (!agents.length) { renderAgentsEmpty(); return; }
+      body.innerHTML = agents.map(a => `
+        <tr>
+          <td class="cell-company">${esc(a.name)}</td>
+          <td><code style="font-size:12px;background:var(--surface-2);padding:2px 6px;border-radius:4px">${esc(a.model)}</code></td>
+          <td>${esc(a.provider)}</td>
+          <td>${a.is_active ? '<span class="badge badge-active"><span class="badge-dot" style="background:var(--green)"></span>Active</span>' : '<span class="badge badge-inactive"><span class="badge-dot" style="background:var(--red)"></span>Inactive</span>'}</td>
+          <td class="cell-date">${formatDate(a.created_at)}</td>
+          <td>${a.is_active ? `<button class="btn btn-reject btn-sm" onclick="unboardAgent('${a.id}')">Unboard</button>` : '<span style="font-size:12px;color:var(--fg-3)">unboarded</span>'}</td>
+        </tr>
+      `).join('');
+    }
+
+    function renderAgentsEmpty() {
+      document.getElementById('agents-body').innerHTML = '<tr><td colspan="6"><div class="empty-state">No agents registered yet</div></td></tr>';
+    }
+
+    async function unboardAgent(id) {
+      if (!confirm('Unboard this agent? This will revoke all active sessions.')) return;
+      try {
+        const res = await api(`/agents/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Unboard failed');
+        toast('Agent unboarded', 'success');
+        loadAgents();
+      } catch (e) {
+        toast('Failed to unboard: ' + e.message, 'error');
+      }
+    }
+
+    // ── Sessions ──
+    async function loadSessions() {
+      try {
+        const res = await api('/sessions');
+        if (!res.ok) { renderSessionsEmpty(); return; }
+        const data = await res.json();
+        renderSessions(data.sessions || data);
+      } catch (e) {
+        renderSessionsEmpty();
+      }
+    }
+
+    function renderSessions(sessions) {
+      const body = document.getElementById('sessions-body');
+      if (!sessions.length) { renderSessionsEmpty(); return; }
+      body.innerHTML = sessions.map(s => `
+        <tr>
+          <td class="cell-company">${esc(s.agent_name || s.agent_id || '--')}</td>
+          <td><code style="font-size:12px;background:var(--surface-2);padding:2px 6px;border-radius:4px">${esc(s.model || '--')}</code></td>
+          <td style="font-family:var(--mono);font-size:12px">${s.message_count || 0}</td>
+          <td style="font-family:var(--mono);font-size:12px;color:var(--gold)">$${(s.total_cost || 0).toFixed(6)}</td>
+          <td class="cell-date">${formatDate(s.created_at)}</td>
+        </tr>
+      `).join('');
+    }
+
+    function renderSessionsEmpty() {
+      document.getElementById('sessions-body').innerHTML = '<tr><td colspan="5"><div class="empty-state">No sessions yet</div></td></tr>';
+    }
+
+    // ── Helpers ──
+    function statusBadge(status) {
+      const cls = { pending: 'badge-pending', approved: 'badge-approved', rejected: 'badge-rejected' }[status] || 'badge-pending';
+      return `<span class="badge ${cls}"><span class="badge-dot"></span>${status}</span>`;
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '--';
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
+    }
+
+    function esc(str) {
+      if (!str) return '';
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function toast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const t = document.createElement('div');
+      t.className = `toast ${type}`;
+      t.innerHTML = `<span style="color:${type === 'success' ? 'var(--green)' : 'var(--red)'}">
+        ${type === 'success' ? '&#10003;' : '&#10007;'}
+      </span> ${esc(message)}`;
+      container.appendChild(t);
+      setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3000);
+    }
+  </script>
+</body>
+</html>
