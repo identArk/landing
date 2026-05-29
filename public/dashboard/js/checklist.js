@@ -54,7 +54,7 @@ const OnboardingChecklist = {
       id: 'explore_docs',
       title: 'Explore the docs',
       description: 'Learn about advanced features',
-      href: 'https://github.com/identark/sdk#readme',
+      href: 'https://github.com/identark/identark#readme',
       external: true,
       icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>

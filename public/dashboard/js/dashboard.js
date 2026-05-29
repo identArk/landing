@@ -307,8 +307,10 @@
     try {
       const formData = new FormData(form);
       const data = Object.fromEntries(formData.entries());
-      const action = form.action || form.dataset.action;
-      const method = form.method?.toUpperCase() || 'POST';
+      const action = form.dataset.action || form.getAttribute('action') || window.location.href;
+      // Note: form.method (IDL) always returns 'get' when the attribute is unset.
+      // Use getAttribute so we can fall back to POST for JSON-body endpoints.
+      const method = (form.dataset.method || form.getAttribute('method') || 'POST').toUpperCase();
 
       const response = await fetch(action, {
         method,
