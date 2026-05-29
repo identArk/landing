@@ -3,6 +3,7 @@ import { useNavScrolled } from "@/hooks/useNavScroll";
 import { useReveal } from "@/hooks/useReveal";
 import { useSmoothScroll } from "@/hooks/useSmoothScroll";
 import { Plausible } from "@/components/Plausible";
+import { CodeSwapSection } from "./CodeSwapSection";
 import { CtaSection } from "./CtaSection";
 import { EmailCapture } from "./EmailCapture";
 import { FaqSection } from "./FaqSection";
@@ -13,6 +14,7 @@ import { HowItWorksSection } from "./HowItWorksSection";
 import { IntegrationsSection } from "./IntegrationsSection";
 import { LandingFooter } from "./LandingFooter";
 import { LandingNav } from "./LandingNav";
+import { PrinciplesStrip } from "./PrinciplesStrip";
 import { PricingSection } from "./PricingSection";
 import { TrustBar } from "./TrustBar";
 
@@ -39,8 +41,8 @@ export function HomePage() {
       <Plausible />
 
       <div className="banner">
-        🚀 identark-sdk v1.1.0 is live on PyPI — streaming support + n8n adapter &nbsp;
-        <a href="https://github.com/identark/sdk/releases" target="_blank" rel="noopener noreferrer">
+        IdentArk v1.2.0 — streaming + n8n adapter now on PyPI &nbsp;
+        <a href="https://github.com/identark/identark/releases" target="_blank" rel="noopener noreferrer">
           Read the release →
         </a>
       </div>
@@ -49,10 +51,12 @@ export function HomePage() {
 
       <main>
         <HeroSection />
+        <PrinciplesStrip />
         <TrustBar />
+        <CodeSwapSection />
         <HowItWorksSection />
-        <FeaturesSection />
         <GovernanceSection />
+        <FeaturesSection />
         <IntegrationsSection />
         <PricingSection />
         <FaqSection />

@@ -20,7 +20,7 @@ export function LandingNav({ scrolled }: { scrolled: boolean }) {
 
       <div className="nav-right">
         <Link to="/request-access" className="btn btn-primary">
-          Request Access
+          Request Early Access
         </Link>
       </div>
     </nav>

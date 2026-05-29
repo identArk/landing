@@ -25,13 +25,13 @@ export function CtaSection() {
             Request Early Access
             <ArrowRight />
           </Link>
-          <a href="https://github.com/identark/sdk" target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-lg" style={{ color: "rgba(255,255,255,0.8)", borderColor: "rgba(255,255,255,0.2)" }}>
+          <a href="https://github.com/identark/identark" target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-lg" style={{ color: "rgba(255,255,255,0.8)", borderColor: "rgba(255,255,255,0.2)" }}>
             View on GitHub
           </a>
         </div>
         <div className="install-cmd">
           <span className="cmd-prompt">$</span>
-          pip install identark-sdk
+          pip install identark
         </div>
       </div>
     </section>

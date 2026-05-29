@@ -10,8 +10,24 @@ const faqs: { q: string; a: ReactNode }[] = [
     a: "Our benchmark shows under 1.5ms of SDK overhead per call — less than 0.001% of typical LLM response time (300–800ms). The vault fetch happens in parallel with request setup and is not on the critical path.",
   },
   {
+    q: "How does this compare to LangSmith / Langfuse?",
+    a: "LangSmith and Langfuse are observability tools — they record what your agent did. IdentArk is a control plane — it decides what your agent is allowed to do, in real time, before the call lands. The two are complementary: you can stream IdentArk's audit log into either platform for dashboards.",
+  },
+  {
+    q: "What data leaves my infrastructure?",
+    a: "Audit metadata only: timestamps, token counts, cost, agent IDs, tool names, and risk scores. Prompt content, response content, and raw arguments stay in your own environment. The gateway is the only IdentArk-hosted component, and it can be self-hosted on the Business tier and above.",
+  },
+  {
     q: "Which LLM providers do you support?",
-    a: "We support OpenAI, Anthropic, Mistral, AWS Bedrock, Azure OpenAI, and Google Gemini. Adding a new provider takes minutes — just register your API key in the vault and start making calls.",
+    a: "OpenAI, Anthropic, Mistral, AWS Bedrock, Azure OpenAI, and Google Gemini. Adding a new provider takes minutes — register the API key in the vault and start making calls.",
+  },
+  {
+    q: "Is there a self-hosted option?",
+    a: "Yes. Business tier supports private cloud deployment in your AWS, GCP, or Azure account. Enterprise tier supports fully air-gapped on-prem installs. The control plane, vault, and audit log all run inside your perimeter.",
+  },
+  {
+    q: "What's your SOC 2 / ISO status?",
+    a: "ISO 27001 controls are implemented and undergoing audit. SOC 2 Type II is in observation period. Full mapping documentation and the auditor's bridge letter are available under NDA — email hello@identark.io.",
   },
   {
     q: "Do you store my prompts or responses?",
@@ -37,12 +53,19 @@ export function FaqSection() {
       <div className="section-tag">FAQ</div>
       <h2 className="section-title">Common questions</h2>
 
-      <div className="faq-grid">
-        {faqs.map((item) => (
-          <div key={item.q} className="faq-item">
-            <h3>{item.q}</h3>
+      <div className="faq-list">
+        {faqs.map((item, i) => (
+          <details key={item.q} className="faq-item" {...(i === 0 ? { open: true } : {})}>
+            <summary>
+              <span>{item.q}</span>
+              <span className="faq-chev" aria-hidden>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </span>
+            </summary>
             <p>{item.a}</p>
-          </div>
+          </details>
         ))}
       </div>
     </section>

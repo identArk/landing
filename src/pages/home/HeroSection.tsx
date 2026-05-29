@@ -13,106 +13,30 @@ function ArrowRight() {
   );
 }
 
-function VaultDoor() {
-  const vaultRef = useRef<SVGSVGElement>(null);
-
-  useEffect(() => {
-    if (!vaultRef.current) return;
-    const svg = vaultRef.current;
-    const outerRing = svg.querySelector(".vault-outer");
-    const innerRing = svg.querySelector(".vault-inner");
-    const bolts = svg.querySelectorAll(".vault-bolt");
-    const door = svg.querySelector(".vault-door");
-
-    const tl = gsap.timeline({
-      scrollTrigger: {
-        trigger: svg,
-        start: "top 80%",
-        end: "bottom 20%",
-        scrub: 1.5,
-      },
-    });
-
-    tl.to(outerRing, { rotation: 15, transformOrigin: "50% 50%", duration: 1 }, 0)
-      .to(innerRing, { rotation: -25, transformOrigin: "50% 50%", duration: 1 }, 0)
-      .to(bolts, { opacity: 0, scale: 0.5, transformOrigin: "50% 50%", stagger: 0.05, duration: 0.6 }, 0.2)
-      .to(door, { scale: 0.85, opacity: 0.3, transformOrigin: "50% 50%", duration: 0.8 }, 0.4);
-
-    return () => {
-      tl.kill();
-    };
-  }, []);
-
+function HeroArchPreview() {
   return (
-    <svg
-      ref={vaultRef}
-      viewBox="0 0 400 400"
-      className="vault-svg"
-      style={{ width: "100%", maxWidth: 480, height: "auto" }}
-    >
-      {/* Outer ring */}
-      <circle className="vault-outer" cx="200" cy="200" r="190" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.4" />
-      <circle className="vault-outer" cx="200" cy="200" r="185" fill="none" stroke="#C9A96E" strokeWidth="0.5" opacity="0.2" />
-
-      {/* Bolts */}
-      {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, i) => {
-        const rad = (angle * Math.PI) / 180;
-        const x = 200 + 175 * Math.cos(rad);
-        const y = 200 + 175 * Math.sin(rad);
-        return (
-          <rect
-            key={i}
-            className="vault-bolt"
-            x={x - 6}
-            y={y - 3}
-            width="12"
-            height="6"
-            rx="1"
-            fill="#C9A96E"
-            opacity="0.5"
-            transform={`rotate(${angle} ${x} ${y})`}
-          />
-        );
-      })}
-
-      {/* Inner ring */}
-      <circle className="vault-inner" cx="200" cy="200" r="160" fill="none" stroke="#C9A96E" strokeWidth="1" opacity="0.3" />
-      <circle className="vault-inner" cx="200" cy="200" r="155" fill="none" stroke="#C9A96E" strokeWidth="0.5" opacity="0.15" />
-
-      {/* Door */}
-      <circle className="vault-door" cx="200" cy="200" r="140" fill="none" stroke="#0A1628" strokeWidth="2" opacity="0.6" />
-      <circle className="vault-door" cx="200" cy="200" r="100" fill="none" stroke="#C9A96E" strokeWidth="0.5" opacity="0.2" />
-
-      {/* Handle */}
-      <g className="vault-door">
-        <circle cx="200" cy="200" r="24" fill="none" stroke="#C9A96E" strokeWidth="1.5" opacity="0.5" />
-        <circle cx="200" cy="200" r="8" fill="#C9A96E" opacity="0.3" />
-        <line x1="200" y1="176" x2="200" y2="152" stroke="#C9A96E" strokeWidth="2" opacity="0.4" strokeLinecap="round" />
-      </g>
-
-      {/* Decorative ticks */}
-      {Array.from({ length: 60 }).map((_, i) => {
-        const angle = (i * 6 * Math.PI) / 180;
-        const inner = 142;
-        const outer = i % 5 === 0 ? 152 : 148;
-        const x1 = 200 + inner * Math.cos(angle);
-        const y1 = 200 + inner * Math.sin(angle);
-        const x2 = 200 + outer * Math.cos(angle);
-        const y2 = 200 + outer * Math.sin(angle);
-        return (
-          <line
-            key={`tick-${i}`}
-            x1={x1}
-            y1={y1}
-            x2={x2}
-            y2={y2}
-            stroke="#C9A96E"
-            strokeWidth={i % 5 === 0 ? 0.8 : 0.4}
-            opacity={i % 5 === 0 ? 0.3 : 0.15}
-          />
-        );
-      })}
-    </svg>
+    <div className="hero-arch" aria-hidden>
+      <div className="hero-arch-row">
+        <div className="hero-arch-node">
+          <span className="hero-arch-dot" /> Your Agent
+        </div>
+        <div className="hero-arch-line" />
+        <div className="hero-arch-node accent">
+          <span className="hero-arch-dot accent" /> IdentArk Gateway
+        </div>
+        <div className="hero-arch-line" />
+        <div className="hero-arch-node">
+          <span className="hero-arch-dot" /> LLM Provider
+        </div>
+      </div>
+      <div className="hero-arch-meta">
+        <span>session token only</span>
+        <span>·</span>
+        <span>no secrets in agent</span>
+        <span>·</span>
+        <span>every call risk-scored</span>
+      </div>
+    </div>
   );
 }
 
@@ -133,7 +57,7 @@ export function HeroSection() {
         duration: 0.8,
         stagger: 0.03,
         ease: "power3.out",
-        delay: 0.3,
+        delay: 0.2,
       }
     );
   }, []);
@@ -142,31 +66,23 @@ export function HeroSection() {
   const words = headline.split(" ");
 
   return (
-    <section ref={sectionRef} className="hero" style={{ paddingTop: 140 }}>
+    <section ref={sectionRef} className="hero">
       <div className="hero-eyebrow">
         <span className="eyebrow-line" />
         ISO 27001 Ready · UK/EU Hosted
         <span className="eyebrow-line" />
       </div>
 
-      <div ref={textRef} className="display-xl" style={{ maxWidth: 900, marginBottom: 28 }}>
+      <div ref={textRef} className="display-xl hero-headline">
         {words.map((word, wi) => (
-          <span key={wi} style={{ display: "inline-block", marginRight: "0.3em" }}>
-            {word === "AI" || word === "agents" ? (
-              <em className="hero-char" style={{ color: "var(--brass)", fontStyle: "italic" }}>
-                {word}
-              </em>
-            ) : (
-              <span className="hero-char">{word}</span>
-            )}
+          <span key={wi} className="hero-char" style={{ display: "inline-block", marginRight: "0.3em" }}>
+            {word}
           </span>
         ))}
       </div>
 
-      <p className="hero-sub" style={{ maxWidth: 560 }}>
-        Every operation risk-scored. Critical actions paused for human approval. 
-        Every decision cryptographically logged. Deploy autonomous agents with the oversight 
-        your compliance team requires.
+      <p className="hero-sub">
+        Every operation risk-scored. Critical actions paused for human approval. Every decision cryptographically logged.
       </p>
 
       <div className="hero-actions">
@@ -187,9 +103,7 @@ export function HeroSection() {
         </a>
       </div>
 
-      <div style={{ marginTop: 80, width: "100%", display: "flex", justifyContent: "center" }}>
-        <VaultDoor />
-      </div>
+      <HeroArchPreview />
     </section>
   );
 }

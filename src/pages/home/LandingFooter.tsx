@@ -16,16 +16,16 @@ export function LandingFooter() {
             <ul>
               <li><a href="#features">Features</a></li>
               <li><a href="#pricing">Pricing</a></li>
-              <li><a href="https://github.com/identark/sdk/releases" target="_blank" rel="noopener noreferrer">Changelog</a></li>
+              <li><a href="https://github.com/identark/identark/releases" target="_blank" rel="noopener noreferrer">Changelog</a></li>
               <li><a href="https://api.identark.io/health" target="_blank" rel="noopener noreferrer">Status</a></li>
             </ul>
           </div>
           <div className="footer-col">
             <h4>Developers</h4>
             <ul>
-              <li><a href="https://github.com/identark/sdk" target="_blank" rel="noopener noreferrer">GitHub</a></li>
-              <li><a href="https://github.com/identark/sdk#readme" target="_blank" rel="noopener noreferrer">Documentation</a></li>
-              <li><a href="https://pypi.org/project/identark-sdk/" target="_blank" rel="noopener noreferrer">PyPI</a></li>
+              <li><a href="https://github.com/identark/identark" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+              <li><a href="https://github.com/identark/identark#readme" target="_blank" rel="noopener noreferrer">Documentation</a></li>
+              <li><a href="https://pypi.org/project/identark/" target="_blank" rel="noopener noreferrer">PyPI</a></li>
             </ul>
           </div>
           <div className="footer-col">

@@ -47,7 +47,7 @@ export function GovernanceSection() {
             <span>Risk Score</span>
           </div>
 
-          <div className="gov-arrow">
+          <div className="gov-arrow gated">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M5 12h14M12 5l7 7-7 7" />
             </svg>
@@ -61,13 +61,13 @@ export function GovernanceSection() {
             <span>HITL Gate</span>
           </div>
 
-          <div className="gov-arrow">
+          <div className="gov-arrow auto">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M5 12h14M12 5l7 7-7 7" />
             </svg>
           </div>
 
-          <div className="gov-node">
+          <div className="gov-node execute">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="20 6 9 17 4 12" />
             </svg>
