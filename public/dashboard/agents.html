@@ -380,12 +380,10 @@
 
           <div class="form-group">
             <label for="agent-credentials">Allowed Credentials</label>
-            <select id="agent-credentials" name="allowed_credentials" multiple>
-              <option value="github-api">github-api</option>
-              <option value="aws-s3">aws-s3</option>
-              <option value="slack-bot">slack-bot</option>
+            <select id="agent-credentials" name="allowed_credentials" multiple required size="5">
+              <!-- Populated at runtime by AgentsManager.populateCredentialDropdown() -->
             </select>
-            <span class="form-hint">Hold Ctrl/Cmd to select multiple credentials</span>
+            <span class="form-hint">Hold Ctrl/Cmd to select multiple credentials. Don't see yours? <a href="credentials.html?action=add">Register one first</a>.</span>
           </div>
 
           <div class="form-group">
@@ -463,26 +461,28 @@
       },
 
       populateCredentialDropdown() {
-        const select = document.getElementById('agent-credential');
+        const select = document.getElementById('agent-credentials');
         if (!select) return;
 
-        select.innerHTML = '<option value="">Select credential...</option>';
-        this.credentials.forEach(cred => {
-          const label = cred.label || cred.name || cred.provider;
-          const provider = cred.provider || 'unknown';
-          const option = document.createElement('option');
-          option.value = cred.credential_ref || cred.id || label;
-          option.textContent = `${label} (${provider})`;
-          select.appendChild(option);
-        });
+        select.innerHTML = '';
 
-        if (this.credentials.length === 0) {
-          const option = document.createElement('option');
-          option.value = '';
-          option.textContent = 'No credentials yet - add one first';
-          option.disabled = true;
-          select.appendChild(option);
+        if (!this.credentials || this.credentials.length === 0) {
+          const opt = document.createElement('option');
+          opt.value = '';
+          opt.textContent = 'No credentials yet — register one in Credentials first';
+          opt.disabled = true;
+          select.appendChild(opt);
+          return;
         }
+
+        this.credentials.forEach(cred => {
+          const label = cred.label || cred.name || cred.provider || 'unnamed';
+          const provider = cred.provider || 'unknown';
+          const opt = document.createElement('option');
+          opt.value = cred.credential_ref || cred.id || label;
+          opt.textContent = `${label} (${provider})`;
+          select.appendChild(opt);
+        });
       },
 
       async refresh() {
@@ -611,9 +611,14 @@
           const name = formData.get('agent_id');
           const description = formData.get('description') || '';
           const model = formData.get('model') || 'gpt-4o';
-          const credentialRef = formData.get('credential_ref');
-
-          // Determine provider from credential
+          // Multi-select: read every selected credential the operator allowed.
+          const allowedCredentials = formData.getAll('allowed_credentials').filter(Boolean);
+          if (allowedCredentials.length === 0) {
+            throw new Error('Select at least one allowed credential, or register a credential first.');
+          }
+          // Backend currently models one primary credential per agent; pass the first.
+          // The full allow-list is stored client-side so the UI reflects the operator's intent.
+          const credentialRef = allowedCredentials[0];
           const cred = this.credentials.find(c => (c.credential_ref || c.id) === credentialRef);
           const provider = cred?.provider || 'openai';
 
@@ -629,6 +634,9 @@
               model,
               provider,
               credential_ref: credentialRef,
+              allowed_credentials: allowedCredentials,
+              max_ttl_seconds: parseInt(formData.get('max_ttl') || '600', 10),
+              require_justification: formData.get('require_justification') === '1',
               agent_key: 'agent_' + Math.random().toString(36).substr(2, 8),
               is_active: true,
               created_at: new Date().toISOString()
