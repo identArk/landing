@@ -486,43 +486,97 @@
   <script src="/dashboard/js/command-palette.js"></script>
   <script src="/dashboard/js/theme.js"></script>
   <script>
+    // ═══════════════════════════════════════════════════════════════════════════
+    // NotificationsManager — persists dismissed + read state across reloads
+    // ═══════════════════════════════════════════════════════════════════════════
+    const NotificationsManager = {
+      DISMISSED_KEY: 'identark_notifications_dismissed',
+      READ_KEY: 'identark_notifications_read',
+
+      load() {
+        const dismissed = new Set(JSON.parse(localStorage.getItem(this.DISMISSED_KEY) || '[]'));
+        const read = new Set(JSON.parse(localStorage.getItem(this.READ_KEY) || '[]'));
+        document.querySelectorAll('.notification-item').forEach((item, i) => {
+          const key = item.dataset.id || `n${i}`;
+          item.dataset.id = key;
+          if (dismissed.has(key)) item.remove();
+          if (read.has(key)) item.classList.remove('unread');
+        });
+        this.updateCounts();
+      },
+
+      saveDismissed(id) {
+        const list = JSON.parse(localStorage.getItem(this.DISMISSED_KEY) || '[]');
+        if (!list.includes(id)) list.push(id);
+        localStorage.setItem(this.DISMISSED_KEY, JSON.stringify(list));
+      },
+
+      saveRead(id) {
+        const list = JSON.parse(localStorage.getItem(this.READ_KEY) || '[]');
+        if (!list.includes(id)) list.push(id);
+        localStorage.setItem(this.READ_KEY, JSON.stringify(list));
+      },
+
+      updateCounts() {
+        const unread = document.querySelectorAll('.notification-item.unread').length;
+        const filterCount = document.querySelector('.filter-count');
+        if (filterCount) filterCount.textContent = String(unread);
+        const navBadge = document.querySelector('.nav-badge');
+        if (navBadge) navBadge.textContent = String(unread);
+      },
+    };
+
     // Filter notifications
     document.querySelectorAll('.filter-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-
         const filter = btn.dataset.filter;
         document.querySelectorAll('.notification-item').forEach(item => {
-          if (filter === 'all') {
-            item.style.display = 'flex';
-          } else if (filter === 'unread') {
-            item.style.display = item.classList.contains('unread') ? 'flex' : 'none';
-          } else {
-            item.style.display = item.dataset.type === filter ? 'flex' : 'none';
-          }
+          if (filter === 'all') item.style.display = 'flex';
+          else if (filter === 'unread') item.style.display = item.classList.contains('unread') ? 'flex' : 'none';
+          else item.style.display = item.dataset.type === filter ? 'flex' : 'none';
         });
       });
     });
 
-    // Dismiss notification
+    // Dismiss notification (persists)
     document.querySelectorAll('.notification-dismiss').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const item = e.target.closest('.notification-item');
+        const id = item.dataset.id;
         item.style.animation = 'slideOut 0.3s ease forwards';
-        setTimeout(() => item.remove(), 300);
+        setTimeout(() => {
+          if (id) NotificationsManager.saveDismissed(id);
+          item.remove();
+          NotificationsManager.updateCounts();
+        }, 300);
       });
     });
 
-    // Mark all as read
+    // Clicking the body of a notification marks it read
+    document.querySelectorAll('.notification-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        if (e.target.closest('.notification-dismiss')) return;
+        if (item.classList.contains('unread')) {
+          item.classList.remove('unread');
+          NotificationsManager.saveRead(item.dataset.id);
+          NotificationsManager.updateCounts();
+        }
+      });
+    });
+
+    // Mark all as read (persists)
     function markAllRead() {
       document.querySelectorAll('.notification-item.unread').forEach(item => {
         item.classList.remove('unread');
+        if (item.dataset.id) NotificationsManager.saveRead(item.dataset.id);
       });
-      document.querySelector('.filter-count').textContent = '0';
-      document.querySelector('.nav-badge').textContent = '0';
+      NotificationsManager.updateCounts();
       IdentArk.showToast('All notifications marked as read', 'success');
     }
+
+    document.addEventListener('DOMContentLoaded', () => NotificationsManager.load());
   </script>
 
   <style>
