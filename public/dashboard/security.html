@@ -724,14 +724,54 @@
     let currentSSOStep = 1;
     const totalSSOSteps = 3;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SecurityManager — persists every security setting on the page
+    // ═══════════════════════════════════════════════════════════════════════════
+    const SecurityManager = {
+      STORAGE: 'identark_security_settings',
+      settings: {},
+
+      load() {
+        this.settings = JSON.parse(localStorage.getItem(this.STORAGE) || '{}');
+        // Apply to UI
+        const mfa = document.getElementById('mfa-toggle');
+        if (mfa && this.settings.mfa !== undefined) mfa.checked = !!this.settings.mfa;
+        const st = document.getElementById('session-timeout');
+        if (st && this.settings.session_timeout) st.value = this.settings.session_timeout;
+        const ms = document.getElementById('max-sessions');
+        if (ms && this.settings.max_sessions) ms.value = this.settings.max_sessions;
+        // Wire change listeners (idempotent)
+        if (st && !st.dataset.wired) { st.dataset.wired = '1'; st.addEventListener('change', () => this.set('session_timeout', st.value, `Session timeout set to ${st.options[st.selectedIndex].text}`)); }
+        if (ms && !ms.dataset.wired) { ms.dataset.wired = '1'; ms.addEventListener('change', () => this.set('max_sessions', ms.value, `Max concurrent sessions set to ${ms.value}`)); }
+        // Password policy: any input with id starting 'pwd-'
+        document.querySelectorAll('[id^="pwd-"]').forEach(el => {
+          if (el.dataset.wired) return;
+          el.dataset.wired = '1';
+          const key = 'pwd_' + el.id.replace('pwd-', '');
+          if (this.settings[key] !== undefined) {
+            if (el.type === 'checkbox') el.checked = !!this.settings[key];
+            else el.value = this.settings[key];
+          }
+          el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', () => {
+            this.set(key, el.type === 'checkbox' ? el.checked : el.value);
+          });
+        });
+      },
+
+      set(key, value, message) {
+        this.settings[key] = value;
+        localStorage.setItem(this.STORAGE, JSON.stringify(this.settings));
+        if (message) showNotification(message, 'success');
+      },
+    };
+
     function toggleMFA() {
       const toggle = document.getElementById('mfa-toggle');
-      if (toggle.checked) {
-        showNotification('MFA enabled for your organization', 'success');
-      } else {
-        showNotification('MFA disabled - this reduces security', 'warning');
-      }
+      SecurityManager.set('mfa', toggle.checked);
+      showNotification(toggle.checked ? 'MFA enabled for your organization' : 'MFA disabled — this reduces security', toggle.checked ? 'success' : 'warning');
     }
+
+    document.addEventListener('DOMContentLoaded', () => SecurityManager.load());
 
     function openSSOModal() {
       document.getElementById('sso-modal').classList.add('active');
@@ -755,9 +795,15 @@
         currentSSOStep++;
         updateSSOSteps();
       } else {
-        // Final step - save
+        // Final step - capture form values and persist
+        const provider = (document.querySelector('input[name="sso-provider"]:checked') || {}).value || 'unspecified';
+        const sso = { provider, configured_at: new Date().toISOString() };
+        document.querySelectorAll('#sso-step-2 input, #sso-step-2 select, #sso-step-3 input, #sso-step-3 select').forEach(el => {
+          if (el.name || el.id) sso[el.name || el.id] = el.type === 'checkbox' ? el.checked : el.value;
+        });
+        SecurityManager.set('sso', sso);
         closeSSOModal();
-        showNotification('SSO configuration saved successfully', 'success');
+        showNotification(`${provider.toUpperCase()} SSO configuration saved`, 'success');
       }
     }
 
