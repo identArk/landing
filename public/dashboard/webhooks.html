@@ -466,18 +466,208 @@
   <script src="/dashboard/js/command-palette.js"></script>
   <script src="/dashboard/js/theme.js"></script>
   <script>
+    // ═══════════════════════════════════════════════════════════════════════════
+    // WebhookManager — persistent CRUD with realistic delivery log
+    // ═══════════════════════════════════════════════════════════════════════════
+    const WebhookManager = {
+      STORAGE: 'identark_webhooks',
+      DELIVERY_STORAGE: 'identark_webhook_deliveries',
+      hooks: [],
+      deliveries: [],
+      editingId: null,
+
+      async init() {
+        const stored = JSON.parse(localStorage.getItem(this.STORAGE) || 'null');
+        this.hooks = Array.isArray(stored) ? stored : this.seedHooks();
+        const storedDeliv = JSON.parse(localStorage.getItem(this.DELIVERY_STORAGE) || 'null');
+        this.deliveries = Array.isArray(storedDeliv) ? storedDeliv : this.seedDeliveries();
+        this.persist();
+        this.render();
+        this.renderDeliveries();
+      },
+
+      seedHooks() {
+        return [
+          { id: 'wh_slack_alerts',  name: 'Slack — #alerts channel', url: 'https://hooks.slack.com/services/T0000/B0000/xxxxxxxxxxxxxxxxxxxx',
+            method: 'POST', format: 'json', active: true,
+            events: ['policy.violated', 'auth.failed', 'credential.expired'], secret: '', headers: [],
+            created_at: new Date(Date.now() - 86400000 * 9).toISOString() },
+          { id: 'wh_pagerduty',      name: 'PagerDuty — on-call escalation', url: 'https://events.pagerduty.com/v2/enqueue',
+            method: 'POST', format: 'json', active: true,
+            events: ['policy.violated', 'session.ended'], secret: 'whsec_demo_pd_42a7…', headers: [{ name: 'X-PD-Service', value: 'identark-soc' }],
+            created_at: new Date(Date.now() - 86400000 * 21).toISOString() },
+          { id: 'wh_audit_sink',     name: 'SIEM audit sink', url: 'https://siem.internal.identark.io/ingest/audit',
+            method: 'POST', format: 'json', active: false,
+            events: ['credential.accessed', 'credential.rotated', 'session.created', 'session.ended', 'team.invited', 'team.removed'],
+            secret: 'whsec_demo_siem_891c…', headers: [{ name: 'Authorization', value: 'Bearer …' }],
+            created_at: new Date(Date.now() - 86400000 * 2).toISOString() },
+        ];
+      },
+
+      seedDeliveries() {
+        const now = Date.now();
+        return [
+          { id: 'd1', event: 'policy.violated',     webhook_id: 'wh_slack_alerts', webhook_name: 'Slack — #alerts channel', status: 200, response_ms: 134, at: new Date(now -  5*60000).toISOString() },
+          { id: 'd2', event: 'session.ended',       webhook_id: 'wh_pagerduty',     webhook_name: 'PagerDuty — on-call escalation', status: 202, response_ms: 218, at: new Date(now - 11*60000).toISOString() },
+          { id: 'd3', event: 'credential.expired',  webhook_id: 'wh_slack_alerts', webhook_name: 'Slack — #alerts channel', status: 200, response_ms:  98, at: new Date(now - 23*60000).toISOString() },
+          { id: 'd4', event: 'auth.failed',          webhook_id: 'wh_slack_alerts', webhook_name: 'Slack — #alerts channel', status: 500, response_ms: 412, at: new Date(now - 42*60000).toISOString() },
+          { id: 'd5', event: 'policy.violated',     webhook_id: 'wh_pagerduty',     webhook_name: 'PagerDuty — on-call escalation', status: 202, response_ms: 187, at: new Date(now - 90*60000).toISOString() },
+        ];
+      },
+
+      persist() {
+        localStorage.setItem(this.STORAGE, JSON.stringify(this.hooks));
+        localStorage.setItem(this.DELIVERY_STORAGE, JSON.stringify(this.deliveries));
+      },
+
+      esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); },
+
+      render() {
+        const c = document.getElementById('webhook-list');
+        if (!c) return;
+        if (!this.hooks.length) {
+          c.innerHTML = `<div class="empty-state" style="padding:3rem;text-align:center;color:var(--fg-3);">No webhooks configured. Add one above to receive event notifications.</div>`;
+          return;
+        }
+        c.innerHTML = this.hooks.map(h => `
+          <div class="webhook-card" data-webhook-id="${this.esc(h.id)}" style="display:flex;gap:16px;padding:16px;border:1px solid var(--border);border-radius:8px;margin-bottom:12px;background:var(--surface);align-items:flex-start;">
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px;">
+                <strong style="font-size:14px;">${this.esc(h.name)}</strong>
+                <span class="badge" style="background:${h.active?'#22c55e22':'#64748b22'};color:${h.active?'#22c55e':'#64748b'};padding:2px 8px;border-radius:4px;font-size:11px;">${h.active ? 'active' : 'inactive'}</span>
+                <span class="badge" style="background:#3b82f622;color:#3b82f6;padding:2px 8px;border-radius:4px;font-size:11px;">${this.esc((h.method || 'POST'))} · ${this.esc(h.format || 'json')}</span>
+              </div>
+              <div style="font-family:var(--font-mono),monospace;font-size:12px;color:var(--fg-2);word-break:break-all;">${this.esc(h.url)}</div>
+              <div style="margin-top:6px;font-size:11px;color:var(--fg-3);">${(h.events||[]).map(e => `<code style="background:var(--surface-2);padding:1px 5px;border-radius:3px;margin-right:4px;">${this.esc(e)}</code>`).join('') || '<em>no events subscribed</em>'}</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0;">
+              <button class="btn btn-secondary btn-sm" onclick="testWebhook('${this.esc(h.id)}')">Test</button>
+              <button class="btn-icon" title="${h.active?'Deactivate':'Activate'}" onclick="WebhookManager.toggle('${this.esc(h.id)}')" style="background:none;border:1px solid var(--border);border-radius:4px;padding:6px;cursor:pointer;color:var(--fg-2);">
+                ${h.active
+                  ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>'
+                  : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>'}
+              </button>
+              <button class="btn-icon" title="Edit" onclick="editWebhook('${this.esc(h.id)}')" style="background:none;border:1px solid var(--border);border-radius:4px;padding:6px;cursor:pointer;color:var(--fg-2);">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <button class="btn-icon" title="Delete" onclick="deleteWebhook('${this.esc(h.id)}')" style="background:none;border:1px solid var(--border);border-radius:4px;padding:6px;cursor:pointer;color:#ef4444;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+              </button>
+            </div>
+          </div>
+        `).join('');
+      },
+
+      renderDeliveries() {
+        const tbody = document.getElementById('deliveries-tbody');
+        if (!tbody) return;
+        if (!this.deliveries.length) {
+          tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted" style="padding:2rem;">No deliveries yet</td></tr>`;
+          return;
+        }
+        const fmt = ms => ms + ' ms';
+        const ago = iso => {
+          const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+          if (s < 60) return s + 's ago';
+          if (s < 3600) return Math.floor(s / 60) + 'm ago';
+          return Math.floor(s / 3600) + 'h ago';
+        };
+        tbody.innerHTML = this.deliveries.map(d => `
+          <tr>
+            <td><code>${this.esc(d.event)}</code></td>
+            <td>${this.esc(d.webhook_name)}</td>
+            <td><span class="badge" style="background:${d.status<300?'#22c55e22':'#ef444422'};color:${d.status<300?'#22c55e':'#ef4444'};padding:2px 8px;border-radius:4px;font-size:11px;">${d.status}</span></td>
+            <td>${fmt(d.response_ms)}</td>
+            <td title="${this.esc(d.at)}">${ago(d.at)}</td>
+          </tr>
+        `).join('');
+      },
+
+      loadIntoForm(id) {
+        const h = this.hooks.find(x => x.id === id);
+        if (!h) return;
+        this.editingId = id;
+        document.getElementById('webhook-name').value = h.name || '';
+        document.getElementById('webhook-url').value = h.url || '';
+        const m = document.getElementById('webhook-method'); if (m) m.value = h.method || 'POST';
+        const f = document.getElementById('webhook-format'); if (f) f.value = h.format || 'json';
+        document.getElementById('webhook-secret').value = h.secret || '';
+        document.querySelectorAll('input[name="events"]').forEach(cb => { cb.checked = (h.events || []).includes(cb.value); });
+      },
+
+      upsertFromForm() {
+        const name = document.getElementById('webhook-name').value.trim();
+        const url  = document.getElementById('webhook-url').value.trim();
+        if (!name || !url) { showNotification('Please fill in name and URL', 'error'); return false; }
+        const method = (document.getElementById('webhook-method') || {}).value || 'POST';
+        const format = (document.getElementById('webhook-format') || {}).value || 'json';
+        const secret = document.getElementById('webhook-secret').value.trim();
+        const events = Array.from(document.querySelectorAll('input[name="events"]:checked')).map(cb => cb.value);
+        const payload = { name, url, method, format, secret, events, active: true };
+        if (this.editingId) {
+          const idx = this.hooks.findIndex(h => h.id === this.editingId);
+          if (idx >= 0) this.hooks[idx] = { ...this.hooks[idx], ...payload, updated_at: new Date().toISOString() };
+          showNotification(`Updated webhook "${name}"`, 'success');
+        } else {
+          this.hooks.unshift({ id: 'wh_' + Date.now().toString(36), ...payload, headers: [], created_at: new Date().toISOString() });
+          showNotification(`Created webhook "${name}"`, 'success');
+        }
+        this.persist(); this.render();
+        this.editingId = null;
+        return true;
+      },
+
+      toggle(id) {
+        const h = this.hooks.find(x => x.id === id);
+        if (!h) return;
+        h.active = !h.active;
+        this.persist(); this.render();
+        showNotification(`${h.name} is now ${h.active ? 'active' : 'inactive'}`, 'success');
+      },
+
+      remove(id) {
+        const h = this.hooks.find(x => x.id === id);
+        if (!h) return;
+        this.hooks = this.hooks.filter(x => x.id !== id);
+        this.persist(); this.render();
+        showNotification(`Deleted webhook "${h.name}"`, 'success');
+      },
+
+      test(id) {
+        const h = this.hooks.find(x => x.id === id);
+        if (!h) return showNotification('Webhook not found', 'error');
+        showNotification(`Sending test event to ${h.name}…`, 'info');
+        setTimeout(() => {
+          const ok = Math.random() > 0.1;
+          const delivery = {
+            id: 'd_' + Date.now().toString(36),
+            event: 'test.ping',
+            webhook_id: h.id, webhook_name: h.name,
+            status: ok ? 200 : 500,
+            response_ms: 80 + Math.floor(Math.random() * 250),
+            at: new Date().toISOString(),
+          };
+          this.deliveries.unshift(delivery);
+          this.deliveries = this.deliveries.slice(0, 50);
+          this.persist();
+          this.renderDeliveries();
+          showNotification(ok ? `Test delivered to ${h.name}` : `Test delivery failed (500) — check endpoint`, ok ? 'success' : 'error');
+        }, 800);
+      },
+    };
+
     // Modal functions
     function openWebhookModal(id = null) {
       const modal = document.getElementById('webhook-modal');
       const title = document.getElementById('webhook-modal-title');
-
       if (id) {
         title.textContent = 'Edit Webhook';
+        WebhookManager.loadIntoForm(id);
       } else {
         title.textContent = 'Add Webhook';
+        WebhookManager.editingId = null;
         document.getElementById('webhook-form').reset();
       }
-
       modal.classList.add('active');
       document.body.style.overflow = 'hidden';
     }
@@ -485,48 +675,28 @@
     function closeWebhookModal() {
       document.getElementById('webhook-modal').classList.remove('active');
       document.body.style.overflow = '';
+      WebhookManager.editingId = null;
     }
 
     function saveWebhook() {
-      const name = document.getElementById('webhook-name').value;
-      const url = document.getElementById('webhook-url').value;
-
-      if (!name || !url) {
-        showNotification('Please fill in all required fields', 'error');
-        return;
-      }
-
-      closeWebhookModal();
-      showNotification('Webhook saved successfully', 'success');
+      if (WebhookManager.upsertFromForm()) closeWebhookModal();
     }
 
-    // Webhook actions
-    function testWebhook(id) {
-      showNotification('Sending test event...', 'info');
-      setTimeout(() => {
-        showNotification('Test webhook delivered successfully', 'success');
-      }, 1500);
-    }
-
-    function editWebhook(id) {
-      openWebhookModal(id);
-    }
+    function testWebhook(id) { WebhookManager.test(id); }
+    function editWebhook(id) { openWebhookModal(id); }
 
     function deleteWebhook(id) {
       if (confirm('Are you sure you want to delete this webhook?')) {
-        const item = document.querySelector(`[data-webhook-id="${id}"]`);
-        if (item) {
-          item.style.opacity = '0';
-          item.style.transform = 'translateX(-20px)';
-          setTimeout(() => item.remove(), 300);
-          showNotification('Webhook deleted', 'success');
-        }
+        WebhookManager.remove(id);
       }
     }
 
     function refreshDeliveries() {
-      showNotification('Refreshing delivery log...', 'info');
+      WebhookManager.renderDeliveries();
+      showNotification(`Delivery log refreshed (${WebhookManager.deliveries.length} entries)`, 'info');
     }
+
+    document.addEventListener('DOMContentLoaded', () => WebhookManager.init());
 
     // Form helpers
     function generateSecret() {
