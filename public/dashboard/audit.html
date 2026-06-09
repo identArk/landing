@@ -431,19 +431,216 @@
     document.getElementById('date-to').valueAsDate = today;
     document.getElementById('date-from').valueAsDate = weekAgo;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AuditManager — real data, real rendering, real export.
+    // Loads from API.listAuditLogs() when authenticated; otherwise reads
+    // localStorage (populated by other dashboard pages) and falls back to a
+    // representative sample so the page is never empty during demos.
+    // ═══════════════════════════════════════════════════════════════════════════
+    const AuditManager = {
+      logs: [],
+      isAuthenticated: false,
+      page: 1,
+      perPage: 50,
+      hasMore: false,
+
+      async init() {
+        try { this.isAuthenticated = await API.init(); } catch { this.isAuthenticated = false; }
+        await this.load();
+        this.populateUserFilter();
+        this.render();
+        this.updateStats();
+      },
+
+      async load() {
+        if (this.isAuthenticated) {
+          try {
+            const data = await API.listAuditLogs(this.perPage * this.page, 0);
+            this.logs = Array.isArray(data) ? data : (data?.items || []);
+            this.hasMore = (data?.has_more === true) || this.logs.length === this.perPage * this.page;
+            return;
+          } catch (e) { console.warn('Audit API failed, falling back:', e); }
+        }
+        // Demo/local fallback: synthesise from sibling pages + sample data
+        const fromStorage = JSON.parse(localStorage.getItem('identark_audit') || '[]');
+        this.logs = fromStorage.length ? fromStorage : this.sampleLogs();
+        this.hasMore = false;
+      },
+
+      sampleLogs() {
+        const now = Date.now();
+        const min = 60 * 1000;
+        return [
+          { id: 'a1', timestamp: new Date(now -  2*min).toISOString(), user: 'research-agent', user_kind: 'agent',
+            type: 'credential', action: 'credential.fetched', status: 'success',
+            details: 'Fetched openai-api credential for session sess_8b75a0g6k',
+            metadata: { credential_ref: 'secret/orgs/identark/openai', tool: 'search_web', cost_usd: 0.0072, latency_ms: 412 } },
+          { id: 'a2', timestamp: new Date(now -  3*min).toISOString(), user: 'research-agent', user_kind: 'agent',
+            type: 'system', action: 'llm.invoke',  status: 'success',
+            details: 'Routed gpt-4o call via DirectGateway, 320 in / 180 out tokens',
+            metadata: { model: 'gpt-4o', tokens_in: 320, tokens_out: 180, cost_usd: 0.0098, risk_score: 12 } },
+          { id: 'a3', timestamp: new Date(now -  9*min).toISOString(), user: 'gold@identark.io', user_kind: 'user',
+            type: 'policy', action: 'policy.updated', status: 'success',
+            details: 'Updated "Destructive Ops Guard" — risk threshold 80 → 75',
+            metadata: { policy_id: 'pol_destructive_guard', changed_by: 'gold@identark.io' } },
+          { id: 'a4', timestamp: new Date(now - 14*min).toISOString(), user: 'deploy-agent', user_kind: 'agent',
+            type: 'credential', action: 'credential.denied', status: 'error',
+            details: 'Agent deploy-agent attempted to use aws-cli-key — not in allow-list',
+            metadata: { agent_id: 'deploy-agent', requested: 'aws-cli-key', reason: 'not_in_allow_list' } },
+          { id: 'a5', timestamp: new Date(now - 22*min).toISOString(), user: 'support-agent', user_kind: 'agent',
+            type: 'system', action: 'hitl.requested', status: 'warning',
+            details: 'High-risk action requires human approval — risk score 87',
+            metadata: { approval_id: 'HITL-0001', risk_score: 87, action: 'force_password_reset' } },
+          { id: 'a6', timestamp: new Date(now - 25*min).toISOString(), user: 'gold@identark.io', user_kind: 'user',
+            type: 'system', action: 'hitl.approved', status: 'success',
+            details: 'HITL-0001 approved by operator (MFA verified)',
+            metadata: { approval_id: 'HITL-0001', mfa: true, decided_by: 'gold@identark.io' } },
+          { id: 'a7', timestamp: new Date(now - 42*min).toISOString(), user: 'gold@identark.io', user_kind: 'user',
+            type: 'auth', action: 'auth.login', status: 'success',
+            details: 'Sign-in from 92.40.18.7 (London, UK) via Google SSO',
+            metadata: { ip: '92.40.18.7', location: 'London, UK', method: 'sso_google' } },
+          { id: 'a8', timestamp: new Date(now - 58*min).toISOString(), user: 'gold@identark.io', user_kind: 'user',
+            type: 'team', action: 'team.invite_sent', status: 'success',
+            details: 'Invited adaeze@identark.io as Member',
+            metadata: { invited_email: 'adaeze@identark.io', role: 'member' } },
+          { id: 'a9', timestamp: new Date(now - 90*min).toISOString(), user: 'gold@identark.io', user_kind: 'user',
+            type: 'credential', action: 'credential.registered', status: 'success',
+            details: 'Registered new credential: Production Anthropic (anthropic)',
+            metadata: { credential_ref: 'secret/orgs/identark/anthropic-prod', provider: 'anthropic' } },
+          { id: 'a10', timestamp: new Date(now - 5*60*min).toISOString(), user: 'system', user_kind: 'system',
+            type: 'system', action: 'rate_limit.warning', status: 'warning',
+            details: 'research-agent at 85% of daily call budget (4250 / 5000)',
+            metadata: { agent_id: 'research-agent', used: 4250, limit: 5000, window: '24h' } },
+        ];
+      },
+
+      populateUserFilter() {
+        const select = document.getElementById('user-filter');
+        if (!select) return;
+        const users = Array.from(new Set(this.logs.map(l => l.user))).filter(u => u !== 'system').sort();
+        // Drop any existing dynamic <option>s (keep first "all" + last "system")
+        Array.from(select.querySelectorAll('option')).forEach(o => {
+          if (!['all','system'].includes(o.value)) o.remove();
+        });
+        const sysOpt = select.querySelector('option[value="system"]');
+        users.forEach(u => {
+          const opt = document.createElement('option');
+          opt.value = u; opt.textContent = u;
+          select.insertBefore(opt, sysOpt);
+        });
+      },
+
+      iconFor(type) {
+        const ic = {
+          auth:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>',
+          credential: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+          policy:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+          team:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+          system:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+        };
+        return ic[type] || ic.system;
+      },
+
+      timeAgo(iso) {
+        const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+        if (s < 60) return s + 's ago';
+        if (s < 3600) return Math.floor(s / 60) + 'm ago';
+        if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+        return Math.floor(s / 86400) + 'd ago';
+      },
+
+      esc(s) {
+        return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      },
+
+      renderEntry(l) {
+        const metaRows = Object.entries(l.metadata || {})
+          .map(([k, v]) => `<dt>${this.esc(k)}</dt><dd>${this.esc(typeof v === 'object' ? JSON.stringify(v) : v)}</dd>`)
+          .join('');
+        return `
+        <div class="log-entry" data-type="${this.esc(l.type)}" data-status="${this.esc(l.status)}" data-user="${this.esc(l.user)}">
+          <div class="log-icon log-icon-${this.esc(l.status)}" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;">${this.iconFor(l.type)}</div>
+          <div class="log-body" style="flex:1; min-width:0;">
+            <div class="log-line" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <span class="log-action"><strong>${this.esc(l.action)}</strong></span>
+              <span class="log-user" style="color:var(--fg-2);">— ${this.esc(l.user)}</span>
+              <span class="badge badge-${this.esc(l.status)}">${this.esc(l.status)}</span>
+              <span class="log-time" style="margin-left:auto;color:var(--fg-3);font-size:12px;">${this.timeAgo(l.timestamp)} · ${new Date(l.timestamp).toLocaleString()}</span>
+            </div>
+            <div class="log-details" style="color:var(--fg-2);font-size:13px;margin-top:2px;">${this.esc(l.details)}</div>
+            ${metaRows ? `<div class="log-meta" hidden><dl style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin-top:8px;font-size:12px;">${metaRows}</dl></div>` : ''}
+          </div>
+          ${metaRows ? `<button class="btn-icon log-toggle" type="button" onclick="toggleLogDetails(this)" aria-label="Toggle details" style="background:none;border:none;color:var(--fg-3);cursor:pointer;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>` : ''}
+        </div>`;
+      },
+
+      render() {
+        const c = document.getElementById('audit-log');
+        if (!c) return;
+        if (!this.logs.length) {
+          c.innerHTML = `<div class="empty-state" style="padding:3rem;text-align:center;color:var(--fg-3);">No audit logs yet.</div>`;
+        } else {
+          c.innerHTML = this.logs.map(l => this.renderEntry(l)).join('');
+        }
+        const countEl = document.querySelector('.log-count');
+        if (countEl) countEl.textContent = `${this.logs.length} event${this.logs.length === 1 ? '' : 's'}`;
+        const loadMore = document.querySelector('.load-more');
+        if (loadMore) loadMore.style.display = this.hasMore ? '' : 'none';
+        filterLogs();
+      },
+
+      updateStats() {
+        const cards = document.querySelectorAll('.stats-grid-5 .stat-value');
+        if (cards.length < 5) return;
+        const total = this.logs.length;
+        const succ  = this.logs.filter(l => l.status === 'success').length;
+        const warn  = this.logs.filter(l => l.status === 'warning').length;
+        const err   = this.logs.filter(l => l.status === 'error').length;
+        const users = new Set(this.logs.filter(l => l.user_kind !== 'system').map(l => l.user)).size;
+        cards[0].textContent = total;
+        cards[1].textContent = succ;
+        cards[2].textContent = warn;
+        cards[3].textContent = err;
+        cards[4].textContent = users;
+      },
+
+      toCSV() {
+        const rows = [['timestamp', 'user', 'type', 'action', 'status', 'details', 'metadata']];
+        this.logs.forEach(l => rows.push([l.timestamp, l.user, l.type, l.action, l.status, l.details, JSON.stringify(l.metadata || {})]));
+        return rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+      },
+
+      toJSON() { return JSON.stringify(this.logs, null, 2); },
+    };
+
+    // Toggle log details (overridden for new markup)
+    function toggleLogDetails(btn) {
+      const entry = btn.closest('.log-entry');
+      const meta = entry.querySelector('.log-meta');
+      const chev = btn.querySelector('svg');
+      if (meta) meta.hidden = !meta.hidden;
+      if (chev) chev.style.transform = meta && !meta.hidden ? 'rotate(180deg)' : '';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => AuditManager.init());
+
     // Filter logs
     function filterLogs() {
       const eventType = document.getElementById('event-type-filter').value;
-      const user = document.getElementById('user-filter').value;
-      const status = document.getElementById('status-filter').value;
+      const user      = document.getElementById('user-filter').value;
+      const status    = document.getElementById('status-filter').value;
 
       document.querySelectorAll('.log-entry').forEach(entry => {
-        const entryType = entry.dataset.type;
+        const entryType   = entry.dataset.type;
         const entryStatus = entry.dataset.status;
+        const entryUser   = entry.dataset.user;
 
         let show = true;
-        if (eventType !== 'all' && entryType !== eventType) show = false;
-        if (status !== 'all' && entryStatus !== status) show = false;
+        if (eventType !== 'all' && entryType   !== eventType) show = false;
+        if (status    !== 'all' && entryStatus !== status)    show = false;
+        if (user      !== 'all' && entryUser   !== user)      show = false;
 
         entry.style.display = show ? 'flex' : 'none';
       });
@@ -464,13 +661,17 @@
       entry.classList.toggle('expanded');
     }
 
-    // Load more logs
-    function loadMoreLogs() {
-      showNotification('Loading more events...', 'info');
-      // Simulate loading
-      setTimeout(() => {
-        showNotification('Loaded 50 more events', 'success');
-      }, 1000);
+    // Load more logs — real next-page fetch
+    async function loadMoreLogs() {
+      AuditManager.page += 1;
+      try {
+        await AuditManager.load();
+        AuditManager.render();
+        AuditManager.updateStats();
+        showNotification(`Loaded ${AuditManager.logs.length} events total`, 'success');
+      } catch (e) {
+        showNotification('Failed to load more events: ' + (e.message || e), 'error');
+      }
     }
 
     // Export functionality
@@ -486,14 +687,20 @@
 
     function downloadExport() {
       const format = document.querySelector('input[name="export-format"]:checked').value;
-      const range = document.getElementById('export-range').value;
-
+      const range  = document.getElementById('export-range').value;
       closeExportModal();
-      showNotification(`Preparing ${format.toUpperCase()} export...`, 'info');
-
-      setTimeout(() => {
-        showNotification(`Export downloaded: audit_logs_${range}.${format}`, 'success');
-      }, 1500);
+      const blob = new Blob(
+        [format === 'csv' ? AuditManager.toCSV() : AuditManager.toJSON()],
+        { type: format === 'csv' ? 'text/csv' : 'application/json' }
+      );
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const stamp = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `audit_logs_${range || 'all'}_${stamp}.${format}`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showNotification(`Exported ${AuditManager.logs.length} events as ${format.toUpperCase()}`, 'success');
     }
 
     // Export format selection
