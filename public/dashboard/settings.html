@@ -622,22 +622,60 @@
     document.querySelectorAll('.settings-tab').forEach(tab => {
       tab.addEventListener('click', () => {
         const tabId = tab.dataset.tab;
-
-        // Update active tab
         document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
-
-        // Show corresponding section
         document.querySelectorAll('.settings-section').forEach(section => {
           section.style.display = section.id === `section-${tabId}` ? 'block' : 'none';
         });
+        localStorage.setItem('identark_settings_active_tab', tabId);
       });
     });
 
-    // Organization form submit
-    document.getElementById('org-form').addEventListener('submit', (e) => {
-      e.preventDefault();
-      IdentArk.showToast('Settings saved successfully', 'success');
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SettingsManager — persists every form on every settings section
+    // ═══════════════════════════════════════════════════════════════════════════
+    const SettingsManager = {
+      STORAGE: 'identark_org_settings',
+
+      load() {
+        const data = JSON.parse(localStorage.getItem(this.STORAGE) || '{}');
+        document.querySelectorAll('.settings-section form input, .settings-section form select, .settings-section form textarea').forEach(el => {
+          const key = el.id || el.name;
+          if (!key) return;
+          if (data[key] !== undefined) {
+            if (el.type === 'checkbox') el.checked = !!data[key];
+            else el.value = data[key];
+          }
+        });
+        // Restore last active tab
+        const tab = localStorage.getItem('identark_settings_active_tab');
+        if (tab) {
+          const t = document.querySelector(`.settings-tab[data-tab="${tab}"]`);
+          if (t) t.click();
+        }
+      },
+
+      saveForm(form) {
+        const data = JSON.parse(localStorage.getItem(this.STORAGE) || '{}');
+        form.querySelectorAll('input, select, textarea').forEach(el => {
+          const key = el.id || el.name;
+          if (!key) return;
+          data[key] = el.type === 'checkbox' ? el.checked : el.value;
+        });
+        localStorage.setItem(this.STORAGE, JSON.stringify(data));
+      },
+    };
+
+    // Wire every form's submit to persist into storage
+    document.addEventListener('DOMContentLoaded', () => {
+      SettingsManager.load();
+      document.querySelectorAll('.settings-section form').forEach(form => {
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          SettingsManager.saveForm(form);
+          IdentArk.showToast('Settings saved successfully', 'success');
+        });
+      });
     });
   </script>
 
