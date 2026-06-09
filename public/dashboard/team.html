@@ -552,6 +552,157 @@
   <script src="/dashboard/js/command-palette.js"></script>
   <script src="/dashboard/js/theme.js"></script>
   <script>
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TeamManager — real members + invitations with persistent storage
+    // ═══════════════════════════════════════════════════════════════════════════
+    const TeamManager = {
+      MEMBERS_KEY: 'identark_team_members',
+      INVITES_KEY: 'identark_team_invites',
+      members: [],
+      invites: [],
+
+      async init() {
+        const m = JSON.parse(localStorage.getItem(this.MEMBERS_KEY) || 'null');
+        const i = JSON.parse(localStorage.getItem(this.INVITES_KEY) || 'null');
+        this.members = Array.isArray(m) ? m : this.seedMembers();
+        this.invites = Array.isArray(i) ? i : [];
+        this.persist();
+        this.renderMembers();
+        this.renderInvites();
+      },
+
+      seedMembers() {
+        const now = Date.now();
+        const min = 60000;
+        return [
+          { id: 'u_owner', name: 'Gold Okpa',        email: 'gold@identark.io',     role: 'owner',     status: 'active', last_active: new Date(now - 5*min).toISOString(),    credentials_access: 'all', avatar: 'GO' },
+          { id: 'u_admin', name: 'Adaeze Okonkwo',   email: 'adaeze@identark.io',   role: 'admin',     status: 'active', last_active: new Date(now - 32*min).toISOString(),   credentials_access: 'production',  avatar: 'AO' },
+          { id: 'u_dev1',  name: 'Marcus Chen',       email: 'marcus@identark.io',  role: 'developer', status: 'active', last_active: new Date(now - 3*60*min).toISOString(), credentials_access: 'development', avatar: 'MC' },
+          { id: 'u_view',  name: 'Sarah Williams',    email: 'sarah@identark.io',   role: 'viewer',    status: 'invited',last_active: null,                                  credentials_access: 'read-only',   avatar: 'SW' },
+        ];
+      },
+
+      persist() {
+        localStorage.setItem(this.MEMBERS_KEY, JSON.stringify(this.members));
+        localStorage.setItem(this.INVITES_KEY, JSON.stringify(this.invites));
+      },
+
+      esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); },
+
+      ago(iso) {
+        if (!iso) return 'never';
+        const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+        if (s < 60) return s + 's ago';
+        if (s < 3600) return Math.floor(s / 60) + 'm ago';
+        if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+        return Math.floor(s / 86400) + 'd ago';
+      },
+
+      roleColor(r) { return ({ owner: '#a855f7', admin: '#3b82f6', developer: '#22c55e', viewer: '#64748b' })[r] || '#64748b'; },
+
+      filtered() {
+        const q = (document.getElementById('member-search')?.value || '').toLowerCase();
+        const rf = document.getElementById('role-filter')?.value || 'all';
+        return this.members.filter(m =>
+          (rf === 'all' || m.role === rf) &&
+          (!q || m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q))
+        );
+      },
+
+      renderMembers() {
+        const tbody = document.querySelector('#members-table tbody');
+        if (!tbody) return;
+        const list = this.filtered();
+        if (!list.length) {
+          tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted" style="padding:2rem;">No team members match.</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = list.map(m => {
+          const color = this.roleColor(m.role);
+          return `
+            <tr data-member-id="${this.esc(m.id)}">
+              <td>
+                <div style="display:flex;gap:10px;align-items:center;">
+                  <div style="width:32px;height:32px;border-radius:50%;background:${color}22;color:${color};font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;">${this.esc(m.avatar)}</div>
+                  <div>
+                    <div style="font-weight:600;font-size:13px;">${this.esc(m.name)}</div>
+                    <div style="color:var(--fg-3);font-size:11px;">${this.esc(m.email)}</div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="badge" style="background:${color}22;color:${color};padding:2px 8px;border-radius:4px;font-size:11px;">${this.esc(m.role)}</span></td>
+              <td><span class="badge" style="background:${m.status==='active'?'#22c55e22':'#f59e0b22'};color:${m.status==='active'?'#22c55e':'#f59e0b'};padding:2px 8px;border-radius:4px;font-size:11px;">${this.esc(m.status)}</span></td>
+              <td>${this.ago(m.last_active)}</td>
+              <td><code style="font-size:11px;background:var(--surface-2);padding:2px 6px;border-radius:3px;">${this.esc(m.credentials_access)}</code></td>
+              <td>
+                <button class="btn-icon" onclick="editMember('${this.esc(m.id)}')" title="Edit" style="background:none;border:1px solid var(--border);border-radius:4px;padding:6px;cursor:pointer;color:var(--fg-2);">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button class="btn-icon" onclick="removeMember('${this.esc(m.id)}')" title="Remove" style="background:none;border:1px solid var(--border);border-radius:4px;padding:6px;cursor:pointer;color:#ef4444;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+                </button>
+              </td>
+            </tr>`;
+        }).join('');
+      },
+
+      renderInvites() {
+        const card = document.getElementById('pending-invites-card');
+        const list = document.getElementById('invite-list');
+        const count = document.getElementById('pending-count');
+        if (!card || !list) return;
+        if (!this.invites.length) { card.style.display = 'none'; return; }
+        card.style.display = '';
+        if (count) count.textContent = `${this.invites.length} pending`;
+        list.innerHTML = this.invites.map(i => `
+          <div style="display:flex;gap:12px;padding:12px;border:1px solid var(--border);border-radius:6px;margin-bottom:8px;align-items:center;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:600;font-size:13px;">${this.esc(i.email)}</div>
+              <div style="color:var(--fg-3);font-size:12px;">Role: <strong>${this.esc(i.role)}</strong> · Sent ${this.ago(i.sent_at)}</div>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="resendInvite('${this.esc(i.email)}')">Resend</button>
+            <button class="btn-icon" onclick="cancelInvite('${this.esc(i.email)}')" title="Cancel" style="background:none;border:1px solid var(--border);border-radius:4px;padding:6px;cursor:pointer;color:#ef4444;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        `).join('');
+      },
+
+      invite(email, role, credentials, message) {
+        if (this.members.some(m => m.email === email) || this.invites.some(i => i.email === email)) {
+          showNotification('That email is already on the team or invited', 'error');
+          return false;
+        }
+        this.invites.unshift({ email, role, credentials_access: credentials || 'read-only', message: message || '', sent_at: new Date().toISOString() });
+        this.persist(); this.renderInvites();
+        showNotification(`Invitation sent to ${email}`, 'success');
+        return true;
+      },
+
+      remove(id) {
+        const m = this.members.find(x => x.id === id);
+        if (!m) return;
+        if (m.role === 'owner') { showNotification('Cannot remove the owner', 'error'); return; }
+        this.members = this.members.filter(x => x.id !== id);
+        this.persist(); this.renderMembers();
+        showNotification(`Removed ${m.name}`, 'success');
+      },
+
+      resendInvite(email) {
+        const i = this.invites.find(x => x.email === email);
+        if (!i) return showNotification('Invite not found', 'error');
+        i.sent_at = new Date().toISOString();
+        this.persist(); this.renderInvites();
+        showNotification(`Invitation resent to ${email}`, 'success');
+      },
+
+      cancelInvite(email) {
+        this.invites = this.invites.filter(i => i.email !== email);
+        this.persist(); this.renderInvites();
+        showNotification('Invite cancelled', 'success');
+      },
+    };
+
     // Invite Modal
     function openInviteModal() {
       document.getElementById('invite-modal').classList.add('active');
@@ -566,38 +717,37 @@
     }
 
     function sendInvite() {
-      const email = document.getElementById('invite-email').value;
-      const role = document.getElementById('invite-role').value;
-
-      if (!email) {
-        alert('Please enter an email address');
-        return;
-      }
-
-      // Simulate sending invite
-      console.log('Sending invite to:', email, 'as', role);
-      closeInviteModal();
-      showNotification(`Invitation sent to ${email}`, 'success');
+      const email = document.getElementById('invite-email').value.trim();
+      const role  = document.getElementById('invite-role').value;
+      const creds = Array.from(document.getElementById('invite-credentials').selectedOptions).map(o => o.value).join(', ') || 'read-only';
+      const msg   = document.getElementById('invite-message').value;
+      if (!email) { alert('Please enter an email address'); return; }
+      if (TeamManager.invite(email, role, creds, msg)) closeInviteModal();
     }
 
-    // Member Management
     function editMember(id) {
-      console.log('Editing member:', id);
-      // Would open edit modal
+      const m = TeamManager.members.find(x => x.id === id);
+      if (!m) return;
+      const newRole = prompt(`Change role for ${m.name}\nCurrent: ${m.role}\nOptions: owner, admin, developer, viewer`, m.role);
+      if (!newRole) return;
+      if (!['owner','admin','developer','viewer'].includes(newRole)) return showNotification('Invalid role', 'error');
+      m.role = newRole;
+      TeamManager.persist(); TeamManager.renderMembers();
+      showNotification(`${m.name} is now ${newRole}`, 'success');
     }
 
     function removeMember(id) {
       if (confirm('Are you sure you want to remove this team member?')) {
-        console.log('Removing member:', id);
-        showNotification('Team member removed', 'success');
+        TeamManager.remove(id);
       }
     }
 
-    // Invitation Management
-    function resendInvite(email) {
-      console.log('Resending invite to:', email);
-      showNotification('Invitation resent', 'success');
-    }
+    function resendInvite(email) { TeamManager.resendInvite(email); }
+    function cancelInvite(email) { TeamManager.cancelInvite(email); }
+
+    function filterMembers() { TeamManager.renderMembers(); }
+
+    document.addEventListener('DOMContentLoaded', () => TeamManager.init());
 
     function cancelInvite(email) {
       if (confirm('Are you sure you want to cancel this invitation?')) {

@@ -339,62 +339,11 @@
       <div class="card">
         <div class="card-header">
           <h3>Custom Roles</h3>
-          <span class="badge badge-info">2 Roles</span>
+          <span class="badge badge-info" id="custom-roles-count">0 Roles</span>
         </div>
         <div class="card-body" style="padding: 0;">
-          <div class="roles-list">
-            <div class="role-item">
-              <div class="role-info">
-                <div class="role-icon custom">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                  </svg>
-                </div>
-                <div>
-                  <h4>Security Auditor</h4>
-                  <p>Read access to audit logs, security settings, and compliance reports.</p>
-                </div>
-              </div>
-              <div class="role-meta">
-                <span class="role-members">2 members</span>
-                <div class="role-actions">
-                  <button class="btn btn-sm btn-secondary" onclick="editRole('security-auditor')">Edit</button>
-                  <button class="btn btn-sm btn-ghost" onclick="deleteRole('security-auditor')">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <polyline points="3 6 5 6 21 6"/>
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div class="role-item">
-              <div class="role-info">
-                <div class="role-icon custom">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="3"/>
-                    <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4"/>
-                  </svg>
-                </div>
-                <div>
-                  <h4>DevOps Engineer</h4>
-                  <p>Manage credentials, agents, and integrations. No access to billing or team settings.</p>
-                </div>
-              </div>
-              <div class="role-meta">
-                <span class="role-members">4 members</span>
-                <div class="role-actions">
-                  <button class="btn btn-sm btn-secondary" onclick="editRole('devops')">Edit</button>
-                  <button class="btn btn-sm btn-ghost" onclick="deleteRole('devops')">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <polyline points="3 6 5 6 21 6"/>
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
+          <div class="roles-list" id="custom-roles-list">
+            <!-- Populated by RoleManager -->
           </div>
         </div>
       </div>
@@ -608,28 +557,153 @@
   <script src="/dashboard/js/command-palette.js"></script>
   <script src="/dashboard/js/theme.js"></script>
   <script>
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RoleManager — persistent custom roles with permission lists
+    // ═══════════════════════════════════════════════════════════════════════════
+    const RoleManager = {
+      STORAGE: 'identark_custom_roles',
+      roles: [],
+      editingId: null,
+      ALL_PERMISSIONS: [
+        'View credentials', 'Create credentials', 'Rotate credentials', 'Delete credentials',
+        'View members', 'Invite members', 'View audit logs', 'Manage policies',
+      ],
+
+      async init() {
+        const stored = JSON.parse(localStorage.getItem(this.STORAGE) || 'null');
+        this.roles = Array.isArray(stored) ? stored : this.seed();
+        this.persist();
+        this.render();
+      },
+
+      seed() {
+        return [
+          { id: 'security-auditor', name: 'Security Auditor', members: 2,
+            description: 'Read access to audit logs, security settings, and compliance reports.',
+            permissions: ['View credentials', 'View audit logs', 'View members'] },
+          { id: 'devops', name: 'DevOps Engineer', members: 4,
+            description: 'Manage credentials, agents, and integrations. No access to billing or team settings.',
+            permissions: ['View credentials', 'Create credentials', 'Rotate credentials', 'Delete credentials', 'View members', 'View audit logs'] },
+        ];
+      },
+
+      persist() { localStorage.setItem(this.STORAGE, JSON.stringify(this.roles)); },
+      esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); },
+
+      render() {
+        const list = document.getElementById('custom-roles-list');
+        const count = document.getElementById('custom-roles-count');
+        if (count) count.textContent = `${this.roles.length} Role${this.roles.length === 1 ? '' : 's'}`;
+        if (!list) return;
+        if (!this.roles.length) {
+          list.innerHTML = `<div class="empty-state" style="padding:2rem;text-align:center;color:var(--fg-3);">No custom roles yet. Create one to extend the built-in roles.</div>`;
+          return;
+        }
+        list.innerHTML = this.roles.map(r => `
+          <div class="role-item" data-role-id="${this.esc(r.id)}">
+            <div class="role-info">
+              <div class="role-icon custom">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </div>
+              <div>
+                <h4>${this.esc(r.name)}</h4>
+                <p>${this.esc(r.description || '')}</p>
+                <div style="margin-top:6px;font-size:11px;color:var(--fg-3);">${(r.permissions || []).map(p => `<code style="background:var(--surface-2);padding:1px 5px;border-radius:3px;margin-right:4px;font-size:10px;">${this.esc(p)}</code>`).join('') || '<em>no permissions</em>'}</div>
+              </div>
+            </div>
+            <div class="role-meta">
+              <span class="role-members">${r.members ?? 0} members</span>
+              <div class="role-actions">
+                <button class="btn btn-sm btn-secondary" onclick="editRole('${this.esc(r.id)}')">Edit</button>
+                <button class="btn btn-sm btn-ghost" onclick="deleteRole('${this.esc(r.id)}')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      },
+
+      collectFormPermissions() {
+        // The modal renders permission checkboxes inside `.permission-checkboxes`
+        const labels = document.querySelectorAll('.permission-checkboxes label');
+        const perms = [];
+        labels.forEach(l => {
+          const cb = l.querySelector('input[type="checkbox"]');
+          if (cb && cb.checked) perms.push(l.textContent.trim());
+        });
+        return perms;
+      },
+
+      loadIntoForm(id) {
+        const r = this.roles.find(x => x.id === id);
+        if (!r) return;
+        this.editingId = id;
+        document.getElementById('role-name').value = r.name || '';
+        document.getElementById('role-description').value = r.description || '';
+        document.querySelectorAll('.permission-checkboxes label').forEach(l => {
+          const cb = l.querySelector('input[type="checkbox"]');
+          if (cb) cb.checked = (r.permissions || []).includes(l.textContent.trim());
+        });
+      },
+
+      upsertFromForm() {
+        const name = document.getElementById('role-name').value.trim();
+        if (!name) { alert('Please enter a role name'); return false; }
+        const description = (document.getElementById('role-description')?.value || '').trim();
+        const permissions = this.collectFormPermissions();
+        const payload = { name, description, permissions };
+        if (this.editingId) {
+          const idx = this.roles.findIndex(r => r.id === this.editingId);
+          if (idx >= 0) this.roles[idx] = { ...this.roles[idx], ...payload };
+          showToast(`Updated role "${name}"`, 'success');
+        } else {
+          this.roles.unshift({ id: 'role_' + Date.now().toString(36), members: 0, ...payload });
+          showToast(`Created role "${name}"`, 'success');
+        }
+        this.persist(); this.render();
+        this.editingId = null;
+        return true;
+      },
+
+      remove(id) {
+        const r = this.roles.find(x => x.id === id);
+        if (!r) return;
+        this.roles = this.roles.filter(x => x.id !== id);
+        this.persist(); this.render();
+        showToast(`Deleted role "${r.name}"`, 'success');
+      },
+    };
+
     function openRoleModal() {
+      RoleManager.editingId = null;
+      document.getElementById('role-name').value = '';
+      document.getElementById('role-description').value = '';
+      document.querySelectorAll('.permission-checkboxes input[type="checkbox"]').forEach(cb => cb.checked = false);
       document.getElementById('role-modal').classList.add('active');
     }
 
     function closeRoleModal() {
       document.getElementById('role-modal').classList.remove('active');
+      RoleManager.editingId = null;
     }
 
     function saveRole() {
-      closeRoleModal();
-      IdentArk.showToast('Role created successfully', 'success');
+      if (RoleManager.upsertFromForm()) closeRoleModal();
     }
 
     function editRole(roleId) {
-      IdentArk.showToast(`Editing role: ${roleId}`, 'info');
+      RoleManager.loadIntoForm(roleId);
+      document.getElementById('role-modal').classList.add('active');
     }
 
     function deleteRole(roleId) {
-      if (confirm('Are you sure you want to delete this role?')) {
-        IdentArk.showToast('Role deleted', 'success');
-      }
+      if (confirm('Are you sure you want to delete this role?')) RoleManager.remove(roleId);
     }
+
+    function showToast(msg, type) { (window.IdentArk && IdentArk.showToast) ? IdentArk.showToast(msg, type) : console.log(`[${type}] ${msg}`); }
+
+    document.addEventListener('DOMContentLoaded', () => RoleManager.init());
   </script>
 
   <style>
