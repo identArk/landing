@@ -490,7 +490,7 @@
                 </svg>
               </div>
               <div class="security-content">
-                <strong>- Policy Violations</strong>
+                <strong>0 Policy Violations</strong>
                 <span>Last 7 days</span>
               </div>
             </div>
@@ -514,7 +514,7 @@
                 </svg>
               </div>
               <div class="security-content">
-                <strong>- Registered Agents</strong>
+                <strong>5 Registered Agents</strong>
                 <span>All verified</span>
               </div>
             </div>
@@ -527,7 +527,7 @@
                 </svg>
               </div>
               <div class="security-content">
-                <strong>- Denied Request</strong>
+                <strong>1 Denied Request</strong>
                 <span>Unregistered agent blocked</span>
               </div>
             </div>
@@ -541,7 +541,7 @@
   <script src="/dashboard/js/api.js"></script>
   <script src="/dashboard/js/command-palette.js"></script>
   <script src="/dashboard/js/theme.js"></script>
-  <script src="/dashboard/js/token-velocity.js"></script>
+  <script src="/dashboard/js/token-velocity.js?v=2"></script>
   <script>
     /**
      * Analytics Manager - Real-time analytics display
@@ -563,10 +563,33 @@
           await this.refresh();
           this.startAutoRefresh();
         } else {
-          this.showEmptyState();
+          // Demo / offline mode: seed representative agent + session data so
+          // the analytics story is visible without a backend.
+          this.loadDemoData();
         }
 
         this.bindEvents();
+      },
+
+      loadDemoData() {
+        const now = Date.now();
+        this.agents = [
+          { name: 'fraud-detection-agent', session_count: 1284, success_rate: 99.6 },
+          { name: 'kyc-onboarding-agent',  session_count: 942,  success_rate: 99.1 },
+          { name: 'research-agent',        session_count: 657,  success_rate: 98.4 },
+          { name: 'reconciliation-agent',  session_count: 411,  success_rate: 99.8 },
+          { name: 'support-copilot',       session_count: 233,  success_rate: 96.7 },
+        ];
+        this.sessions = [
+          { agent_name: 'fraud-detection-agent', credential_label: 'openai-prod',    status: 'success', created_at: new Date(now - 30 * 1000).toISOString() },
+          { agent_name: 'kyc-onboarding-agent',  credential_label: 'anthropic-prod', status: 'success', created_at: new Date(now - 2 * 60 * 1000).toISOString() },
+          { agent_name: 'research-agent',        credential_label: 'serper-api',     status: 'success', created_at: new Date(now - 5 * 60 * 1000).toISOString() },
+          { agent_name: 'unregistered-agent',    credential_label: 'openai-prod',    status: 'denied',  created_at: new Date(now - 8 * 60 * 1000).toISOString() },
+          { agent_name: 'reconciliation-agent',  credential_label: 'azure-openai',   status: 'success', created_at: new Date(now - 12 * 60 * 1000).toISOString() },
+          { agent_name: 'support-copilot',       credential_label: 'anthropic-prod', status: 'success', created_at: new Date(now - 18 * 60 * 1000).toISOString() },
+        ];
+        this.renderAgentStats();
+        this.renderActivityFeed();
       },
 
       async refresh() {

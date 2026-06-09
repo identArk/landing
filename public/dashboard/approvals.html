@@ -225,7 +225,7 @@
       </button>
 
       <div class="header-right">
-        <a href="https://github.com/identark/sdk#readme" target="_blank" rel="noopener" class="header-link">
+        <a href="https://github.com/identArk/identark#readme" target="_blank" rel="noopener" class="header-link">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
             <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
@@ -589,7 +589,26 @@
             badge.style.display = stats.pending_approvals > 0 ? '' : 'none';
           }
         } catch (e) {
-          console.warn('Failed to load stats:', e);
+          console.warn('Failed to load stats, computing locally:', e);
+          // Demo / offline fallback: derive stats from the loaded approvals
+          const list = this.approvals || [];
+          const pending = list.filter(a => a.status === 'pending');
+          const today = new Date().toDateString();
+          const approvedToday = list.filter(a =>
+            (a.status === 'approved') &&
+            new Date(a.decided_at || a.created_at).toDateString() === today
+          ).length;
+          const avgRisk = list.length
+            ? Math.round(list.reduce((s, a) => s + (a.risk_score || 0), 0) / list.length)
+            : 0;
+          document.getElementById('pending-count').textContent = pending.length;
+          document.getElementById('approved-today-count').textContent = approvedToday;
+          document.getElementById('avg-risk-score').textContent = avgRisk;
+          const badge = document.getElementById('nav-approvals-count');
+          if (badge) {
+            badge.textContent = pending.length;
+            badge.style.display = pending.length > 0 ? '' : 'none';
+          }
         }
       },
 
@@ -609,7 +628,7 @@
             organization_id: 'demo-org',
             server_id: 'postgres-prod',
             created_at: new Date(now - 120000).toISOString(),
-            expires_at: new Date(now + 180000).toISOString(),
+            expires_at: new Date(now.getTime() + 1800000).toISOString(),
             status: 'pending',
             risk_factors: {
               operation_type: { score: 0.90, weight: 0.25, contribution: 22.5, label: 'DELETE' },
@@ -633,7 +652,7 @@
             organization_id: 'demo-org',
             server_id: 'aws-prod',
             created_at: new Date(now - 300000).toISOString(),
-            expires_at: new Date(now + 60000).toISOString(),
+            expires_at: new Date(now.getTime() + 1800000).toISOString(),
             status: 'pending',
             risk_factors: {
               operation_type: { score: 0.90, weight: 0.25, contribution: 22.5, label: 'DELETE' },
@@ -700,14 +719,16 @@
           const approvals = await API.request('/mcp/approvals/pending');
           if (approvals && approvals.length > 0) {
             this.approvals = approvals;
-          } else {
+          } else if (!this.approvals || this.approvals.length === 0) {
             this.approvals = this.getDemoApprovals();
           }
           this.render();
           this.loadStats();
         } catch (e) {
           console.warn('Failed to load approvals, using demo data:', e);
-          this.approvals = this.getDemoApprovals();
+          if (!this.approvals || this.approvals.length === 0) {
+            this.approvals = this.getDemoApprovals();
+          }
           this.render();
           this.loadStats();
         }
@@ -921,7 +942,21 @@
           IdentArk.closeModal('mfa-modal');
           await this.refresh();
         } catch (e) {
-          Toast.error(e.message || 'Failed to submit decision');
+          // Demo / offline fallback: apply the decision locally so the
+          // human-in-the-loop workflow can be demonstrated without a backend.
+          const approval = this.approvals.find(a => a.id === id);
+          if (approval) {
+            approval.status = decision;
+            approval.decided_at = new Date().toISOString();
+            approval.mfa_verified = !!mfaToken;
+            Toast.success(`Approval ${decision} (demo mode)`);
+            IdentArk.closeModal('approval-detail-modal');
+            IdentArk.closeModal('mfa-modal');
+            this.render();
+            this.loadStats();
+          } else {
+            Toast.error(e.message || 'Failed to submit decision');
+          }
         }
       },
 

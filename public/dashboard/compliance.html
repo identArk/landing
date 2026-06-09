@@ -232,12 +232,12 @@
         <div class="score-circle">
           <svg viewBox="0 0 140 140">
             <circle cx="70" cy="70" r="62" fill="none" stroke="var(--border)" stroke-width="10"/>
-            <circle cx="70" cy="70" r="62" fill="none" stroke="#10b981" stroke-width="10"
+            <circle id="score-ring" cx="70" cy="70" r="62" fill="none" stroke="#10b981" stroke-width="10"
                     stroke-dasharray="389.6" stroke-dashoffset="58.4" stroke-linecap="round"
                     transform="rotate(-90 70 70)"/>
           </svg>
           <div class="score-inner">
-            <span class="score-percent">85%</span>
+            <span class="score-percent" id="overall-score">85%</span>
             <span class="score-text">Compliant</span>
           </div>
         </div>
@@ -247,16 +247,16 @@
         <p>Your organization meets most compliance requirements. Address the remaining items to achieve full compliance.</p>
         <div class="compliance-stats">
           <div class="comp-stat">
-            <span class="comp-stat-value text-success">42</span>
+            <span class="comp-stat-value text-success" id="stat-passed">42</span>
             <span class="comp-stat-label">Controls Passed</span>
           </div>
           <div class="comp-stat">
-            <span class="comp-stat-value text-warning">6</span>
+            <span class="comp-stat-value text-warning" id="stat-attention">6</span>
             <span class="comp-stat-label">Needs Attention</span>
           </div>
           <div class="comp-stat">
-            <span class="comp-stat-value text-danger">2</span>
-            <span class="comp-stat-label">Critical Issues</span>
+            <span class="comp-stat-value" id="stat-frameworks">2</span>
+            <span class="comp-stat-label">Frameworks Mapped</span>
           </div>
         </div>
       </div>
@@ -459,6 +459,53 @@
         </div>
         <button class="btn btn-secondary btn-sm" onclick="viewFramework('pci')">View Details</button>
       </div>
+
+      <div class="framework-card">
+        <div class="framework-header">
+          <div class="framework-icon eu-ai-act">
+            <span>AI</span>
+          </div>
+          <div class="framework-info">
+            <h3>EU AI Act</h3>
+            <p>EU Regulation 2024/1689</p>
+          </div>
+          <div class="framework-status status-good">
+            <span class="status-percent">90%</span>
+          </div>
+        </div>
+        <div class="framework-progress">
+          <div class="progress-bar">
+            <div class="progress-fill" style="width: 90%; background: linear-gradient(90deg, #0ea5e9, #6366f1);"></div>
+          </div>
+        </div>
+        <div class="framework-controls">
+          <div class="control-item passed">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            <span>Risk Management</span>
+          </div>
+          <div class="control-item passed">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            <span>Human Oversight</span>
+          </div>
+          <div class="control-item passed">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            <span>Record-keeping</span>
+          </div>
+          <div class="control-item passed">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            <span>Transparency</span>
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="viewFramework('eu-ai-act')">View Details</button>
+      </div>
     </div>
 
     <!-- Critical Issues -->
@@ -627,6 +674,28 @@
         this.reports = JSON.parse(localStorage.getItem(this.REPORTS_KEY) || '[]');
         this.renderReports();
         this.renderIssues();
+        this.renderOverview();
+      },
+
+      renderOverview() {
+        let total = 0, passing = 0, attention = 0;
+        const fwList = Object.values(this.frameworks);
+        for (const f of fwList) {
+          for (const c of f.controls) {
+            total++;
+            if (c.status === 'passing') passing++;
+            else attention++;
+          }
+        }
+        const pct = total ? Math.round((passing / total) * 100) : 0;
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        set('overall-score', pct + '%');
+        set('stat-passed', passing);
+        set('stat-attention', attention);
+        set('stat-frameworks', fwList.length);
+        // Sync the progress ring (circumference ≈ 389.6 for r=62)
+        const ring = document.getElementById('score-ring');
+        if (ring) ring.setAttribute('stroke-dashoffset', (389.6 * (1 - pct / 100)).toFixed(1));
       },
 
       renderReports() {
@@ -946,6 +1015,10 @@
 
     .framework-icon.pci {
       background: linear-gradient(135deg, #f59e0b, #fbbf24);
+    }
+
+    .framework-icon.eu-ai-act {
+      background: linear-gradient(135deg, #0ea5e9, #6366f1);
     }
 
     .framework-info {
