@@ -245,7 +245,7 @@
       </button>
 
       <div class="header-right">
-        <a href="https://github.com/identark/sdk#readme" target="_blank" rel="noopener" class="header-link">
+        <a href="https://github.com/identArk/identark#readme" target="_blank" rel="noopener" class="header-link">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
             <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
@@ -468,8 +468,7 @@
                   <th style="width: 80px"></th>
                 </tr>
               </thead>
-              <tbody>
-              <tbody>
+              <tbody id="apikeys-tbody">
                 <tr>
                   <td colspan="5" class="text-center text-muted" style="padding: 2rem;">
                     No API keys created yet
@@ -483,7 +482,7 @@
         <div class="card">
           <div class="card-header">
             <h3>Webhooks</h3>
-            <button class="btn btn-secondary btn-sm">
+            <button class="btn btn-secondary btn-sm" onclick="window.location.href='webhooks.html'">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="12" y1="5" x2="12" y2="19"/>
                 <line x1="5" y1="12" x2="19" y2="12"/>
@@ -613,6 +612,60 @@
     </div>
   </div>
 
+  <!-- Create API Key modal -->
+  <div class="modal" id="create-apikey-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Create API Key</h3>
+        <button class="modal-close" data-modal-close>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <form id="create-apikey-form">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="apikey-name">Key Name</label>
+            <input type="text" id="apikey-name" name="name" placeholder="e.g. CI pipeline, production gateway" required>
+            <span class="form-hint">A label so you can recognise this key later.</span>
+          </div>
+          <div class="form-group">
+            <label for="apikey-scope">Scope</label>
+            <select id="apikey-scope" name="scope" required>
+              <option value="read">Read only</option>
+              <option value="invoke" selected>Invoke (run LLM calls)</option>
+              <option value="admin">Admin (full access)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="apikey-expiry">Expires</label>
+            <select id="apikey-expiry" name="expiry">
+              <option value="30">In 30 days</option>
+              <option value="90" selected>In 90 days</option>
+              <option value="365">In 1 year</option>
+              <option value="0">Never</option>
+            </select>
+          </div>
+          <!-- One-time key reveal (shown after creation) -->
+          <div class="form-group" id="apikey-reveal" style="display:none;">
+            <label>Your new API key</label>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <code id="apikey-reveal-value" style="flex:1;overflow:auto;padding:8px 10px;background:var(--surface-2,#11161f);border:1px solid var(--border);border-radius:6px;font-size:12px;"></code>
+              <button type="button" class="btn btn-secondary btn-sm" id="apikey-copy-btn">Copy</button>
+            </div>
+            <span class="form-hint" style="color:var(--warning,#f59e0b);">Copy it now — for your security it won't be shown again.</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-modal-close>Cancel</button>
+          <button type="submit" class="btn btn-primary" id="apikey-submit-btn">Create Key</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="/dashboard/js/dashboard.js"></script>
   <script src="/dashboard/js/api.js"></script>
   <script src="/dashboard/js/command-palette.js"></script>
@@ -666,6 +719,87 @@
       },
     };
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ApiKeyManager — create / list / revoke API keys. The full secret is shown
+    // exactly once on creation; only a masked prefix is ever persisted.
+    // ═══════════════════════════════════════════════════════════════════════════
+    const ApiKeyManager = {
+      STORAGE: 'identark_api_keys',
+      keys: [],
+
+      load() {
+        this.keys = JSON.parse(localStorage.getItem(this.STORAGE) || '[]');
+        this.render();
+      },
+
+      persist() { localStorage.setItem(this.STORAGE, JSON.stringify(this.keys)); },
+
+      _genSecret() {
+        const rand = (n) => Array.from(crypto.getRandomValues(new Uint8Array(n)))
+          .map(b => 'abcdefghijklmnopqrstuvwxyz0123456789'[b % 36]).join('');
+        return `ik_live_${rand(32)}`;
+      },
+
+      create({ name, scope, expiry }) {
+        const secret = this._genSecret();
+        const days = parseInt(expiry, 10);
+        const rec = {
+          id: 'key_' + Date.now().toString(36),
+          name,
+          scope,
+          masked: secret.slice(0, 11) + '…' + secret.slice(-4),
+          created_at: new Date().toISOString(),
+          expires_at: days > 0 ? new Date(Date.now() + days * 86400000).toISOString() : null,
+          last_used: null,
+        };
+        this.keys.unshift(rec);
+        this.persist();
+        this.render();
+        return secret; // returned once, never stored
+      },
+
+      revoke(id) {
+        const k = this.keys.find(x => x.id === id);
+        if (!k) return;
+        if (!confirm(`Revoke API key "${k.name}"? Any client using it will stop working immediately.`)) return;
+        this.keys = this.keys.filter(x => x.id !== id);
+        this.persist();
+        this.render();
+        IdentArk.showToast('API key revoked', 'success');
+      },
+
+      _esc(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; },
+
+      render() {
+        const tbody = document.getElementById('apikeys-tbody');
+        if (!tbody) return;
+        if (!this.keys.length) {
+          tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted" style="padding:2rem;">No API keys created yet</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = this.keys.map(k => `
+          <tr>
+            <td>${this._esc(k.name)}<br><span class="text-muted" style="font-size:11px;">${this._esc(k.scope)}</span></td>
+            <td><code style="font-size:12px;">${this._esc(k.masked)}</code></td>
+            <td>${new Date(k.created_at).toLocaleDateString()}</td>
+            <td>${k.last_used ? new Date(k.last_used).toLocaleDateString() : '<span class="text-muted">Never</span>'}</td>
+            <td><button class="btn btn-secondary btn-sm" style="color:#ef4444;" onclick="ApiKeyManager.revoke('${k.id}')">Revoke</button></td>
+          </tr>
+        `).join('');
+      },
+
+      resetModal() {
+        const form = document.getElementById('create-apikey-form');
+        if (form) form.reset();
+        const reveal = document.getElementById('apikey-reveal');
+        if (reveal) reveal.style.display = 'none';
+        ['apikey-name', 'apikey-scope', 'apikey-expiry'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = false; });
+        const btn = document.getElementById('apikey-submit-btn');
+        if (btn) { btn.textContent = 'Create Key'; btn.dataset.mode = 'create'; }
+      },
+    };
+    window.ApiKeyManager = ApiKeyManager;
+
     // Wire every form's submit to persist into storage
     document.addEventListener('DOMContentLoaded', () => {
       SettingsManager.load();
@@ -676,6 +810,40 @@
           IdentArk.showToast('Settings saved successfully', 'success');
         });
       });
+
+      // API keys
+      ApiKeyManager.load();
+      const apiForm = document.getElementById('create-apikey-form');
+      if (apiForm) {
+        apiForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const btn = document.getElementById('apikey-submit-btn');
+          if (btn && btn.dataset.mode === 'done') {
+            IdentArk.closeModal('create-apikey-modal');
+            ApiKeyManager.resetModal();
+            return;
+          }
+          const secret = ApiKeyManager.create({
+            name: document.getElementById('apikey-name').value.trim() || 'Untitled key',
+            scope: document.getElementById('apikey-scope').value,
+            expiry: document.getElementById('apikey-expiry').value,
+          });
+          const reveal = document.getElementById('apikey-reveal');
+          document.getElementById('apikey-reveal-value').textContent = secret;
+          if (reveal) reveal.style.display = 'block';
+          ['apikey-name', 'apikey-scope', 'apikey-expiry'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = true; });
+          if (btn) { btn.textContent = 'Done'; btn.dataset.mode = 'done'; }
+          IdentArk.showToast('API key created', 'success');
+        });
+      }
+      const copyBtn = document.getElementById('apikey-copy-btn');
+      if (copyBtn) copyBtn.addEventListener('click', () => {
+        const v = document.getElementById('apikey-reveal-value').textContent;
+        navigator.clipboard.writeText(v).then(() => IdentArk.showToast('Copied to clipboard', 'success'));
+      });
+      // Reset the modal whenever it is closed via the X / Cancel / backdrop
+      document.querySelectorAll('#create-apikey-modal [data-modal-close]').forEach(el =>
+        el.addEventListener('click', () => setTimeout(() => ApiKeyManager.resetModal(), 50)));
     });
   </script>
 

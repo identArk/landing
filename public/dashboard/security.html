@@ -301,7 +301,7 @@
               <span class="status-enabled">Enabled</span>
               <span class="user-count">-</span>
             </div>
-            <button class="btn btn-secondary btn-sm">Configure</button>
+            <button class="btn btn-secondary btn-sm" onclick="toggleMfaMethod(this)">Disable</button>
           </div>
 
           <div class="mfa-method">
@@ -318,7 +318,7 @@
               <span class="status-enabled">Enabled</span>
               <span class="user-count">-</span>
             </div>
-            <button class="btn btn-secondary btn-sm">Configure</button>
+            <button class="btn btn-secondary btn-sm" onclick="toggleMfaMethod(this)">Disable</button>
           </div>
 
           <div class="mfa-method">
@@ -334,7 +334,7 @@
             <div class="mfa-method-status">
               <span class="status-disabled">Not configured</span>
             </div>
-            <button class="btn btn-primary btn-sm">Enable</button>
+            <button class="btn btn-primary btn-sm" onclick="toggleMfaMethod(this)">Enable</button>
           </div>
 
           <div class="mfa-method">
@@ -351,7 +351,7 @@
             <div class="mfa-method-status">
               <span class="status-disabled">Disabled</span>
             </div>
-            <button class="btn btn-secondary btn-sm">Enable</button>
+            <button class="btn btn-secondary btn-sm" onclick="toggleMfaMethod(this)">Enable</button>
           </div>
         </div>
 
@@ -534,7 +534,7 @@
               <p>Skip MFA on trusted devices</p>
             </div>
             <label class="toggle-switch">
-              <input type="checkbox" checked>
+              <input type="checkbox" id="sess-remember-device" checked>
               <span class="toggle-slider"></span>
             </label>
           </div>
@@ -545,7 +545,7 @@
               <p>Require login for sensitive actions</p>
             </div>
             <label class="toggle-switch">
-              <input type="checkbox" checked>
+              <input type="checkbox" id="sess-force-reauth" checked>
               <span class="toggle-slider"></span>
             </label>
           </div>
@@ -562,50 +562,50 @@
         <div class="password-requirements">
           <div class="requirement-item">
             <label class="checkbox-label">
-              <input type="checkbox" checked>
+              <input type="checkbox" id="pwd-minlen-enabled" checked>
               <span>Minimum length</span>
             </label>
-            <input type="number" class="form-input form-input-sm" value="12" min="8" max="128">
+            <input type="number" id="pwd-minlen" class="form-input form-input-sm" value="12" min="8" max="128">
             <span class="requirement-unit">characters</span>
           </div>
           <div class="requirement-item">
             <label class="checkbox-label">
-              <input type="checkbox" checked>
+              <input type="checkbox" id="pwd-uppercase" checked>
               <span>Require uppercase letter</span>
             </label>
           </div>
           <div class="requirement-item">
             <label class="checkbox-label">
-              <input type="checkbox" checked>
+              <input type="checkbox" id="pwd-lowercase" checked>
               <span>Require lowercase letter</span>
             </label>
           </div>
           <div class="requirement-item">
             <label class="checkbox-label">
-              <input type="checkbox" checked>
+              <input type="checkbox" id="pwd-number" checked>
               <span>Require number</span>
             </label>
           </div>
           <div class="requirement-item">
             <label class="checkbox-label">
-              <input type="checkbox" checked>
+              <input type="checkbox" id="pwd-special" checked>
               <span>Require special character</span>
             </label>
           </div>
           <div class="requirement-item">
             <label class="checkbox-label">
-              <input type="checkbox" checked>
+              <input type="checkbox" id="pwd-expiry-enabled" checked>
               <span>Password expiration</span>
             </label>
-            <input type="number" class="form-input form-input-sm" value="90" min="0" max="365">
+            <input type="number" id="pwd-expiry" class="form-input form-input-sm" value="90" min="0" max="365">
             <span class="requirement-unit">days</span>
           </div>
           <div class="requirement-item">
             <label class="checkbox-label">
-              <input type="checkbox" checked>
+              <input type="checkbox" id="pwd-reuse-enabled" checked>
               <span>Prevent password reuse (last N passwords)</span>
             </label>
-            <input type="number" class="form-input form-input-sm" value="5" min="1" max="24">
+            <input type="number" id="pwd-reuse" class="form-input form-input-sm" value="5" min="1" max="24">
           </div>
         </div>
       </div>
@@ -756,6 +756,41 @@
             this.set(key, el.type === 'checkbox' ? el.checked : el.value);
           });
         });
+        // Session security toggles: any input with id starting 'sess-'
+        document.querySelectorAll('[id^="sess-"]').forEach(el => {
+          if (el.dataset.wired) return;
+          el.dataset.wired = '1';
+          const key = 'sess_' + el.id.replace('sess-', '').replace(/-/g, '_');
+          if (this.settings[key] !== undefined) el.checked = !!this.settings[key];
+          el.addEventListener('change', () => this.set(key, el.checked));
+        });
+        // MFA enforcement policy radios
+        document.querySelectorAll('input[name="mfa-enforcement"]').forEach(el => {
+          if (this.settings.mfa_enforcement) el.checked = (el.value === this.settings.mfa_enforcement);
+          if (el.dataset.wired) return;
+          el.dataset.wired = '1';
+          el.addEventListener('change', () => {
+            if (!el.checked) return;
+            const label = el.parentElement.querySelector('strong');
+            this.set('mfa_enforcement', el.value, `MFA enforcement set to: ${label ? label.textContent : el.value}`);
+          });
+        });
+        // MFA method enable/disable state (restore persisted state)
+        document.querySelectorAll('.mfa-method').forEach(method => {
+          const h4 = method.querySelector('h4');
+          if (!h4) return;
+          const key = 'mfa_method_' + h4.textContent.trim().toLowerCase().replace(/[^a-z]+/g, '_');
+          const saved = this.settings[key];
+          if (saved === undefined) return;
+          const statusEl = method.querySelector('.mfa-method-status > span');
+          const btn = method.querySelector('button');
+          if (statusEl) {
+            statusEl.classList.toggle('status-enabled', !!saved);
+            statusEl.classList.toggle('status-disabled', !saved);
+            statusEl.textContent = saved ? 'Enabled' : 'Disabled';
+          }
+          if (btn) btn.textContent = saved ? 'Disable' : 'Enable';
+        });
       },
 
       set(key, value, message) {
@@ -769,6 +804,20 @@
       const toggle = document.getElementById('mfa-toggle');
       SecurityManager.set('mfa', toggle.checked);
       showNotification(toggle.checked ? 'MFA enabled for your organization' : 'MFA disabled — this reduces security', toggle.checked ? 'success' : 'warning');
+    }
+
+    function toggleMfaMethod(btn) {
+      const method = btn.closest('.mfa-method');
+      if (!method) return;
+      const name = method.querySelector('h4').textContent.trim();
+      const statusEl = method.querySelector('.mfa-method-status > span');
+      const next = !statusEl.classList.contains('status-enabled');
+      statusEl.classList.toggle('status-enabled', next);
+      statusEl.classList.toggle('status-disabled', !next);
+      statusEl.textContent = next ? 'Enabled' : 'Disabled';
+      btn.textContent = next ? 'Disable' : 'Enable';
+      const key = 'mfa_method_' + name.toLowerCase().replace(/[^a-z]+/g, '_');
+      SecurityManager.set(key, next, `${name} ${next ? 'enabled' : 'disabled'}`);
     }
 
     document.addEventListener('DOMContentLoaded', () => SecurityManager.load());

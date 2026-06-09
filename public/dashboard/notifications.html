@@ -476,7 +476,7 @@
 
       <!-- Load More -->
       <div class="load-more">
-        <button class="btn btn-secondary">Load older notifications</button>
+        <button class="btn btn-secondary" onclick="IdentArk.showToast(&quot;You're all caught up — no older notifications&quot;, 'info')">Load older notifications</button>
       </div>
     </div>
   </main>
@@ -575,6 +575,38 @@
       NotificationsManager.updateCounts();
       IdentArk.showToast('All notifications marked as read', 'success');
     }
+
+    // Per-notification action buttons: navigate to the relevant page, or dismiss/snooze
+    document.querySelectorAll('.notification-actions .btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const label = btn.textContent.trim();
+        const item = btn.closest('.notification-item');
+        const routes = {
+          'Review Activity': 'audit.html',
+          'Try it now': 'workflows.html',
+          'Rotate Now': 'credentials.html',
+          'View Invoice': 'billing.html',
+        };
+        if (routes[label]) { window.location.href = routes[label]; return; }
+        if (label === 'Dismiss') {
+          if (!item) return;
+          const id = item.dataset.id;
+          item.style.animation = 'slideOut 0.3s ease forwards';
+          setTimeout(() => { if (id) NotificationsManager.saveDismissed(id); item.remove(); NotificationsManager.updateCounts(); }, 300);
+          return;
+        }
+        if (label === 'Remind Later') {
+          if (item && item.classList.contains('unread')) {
+            item.classList.remove('unread');
+            if (item.dataset.id) NotificationsManager.saveRead(item.dataset.id);
+            NotificationsManager.updateCounts();
+          }
+          IdentArk.showToast("We'll remind you again in 24 hours", 'info');
+          return;
+        }
+      });
+    });
 
     document.addEventListener('DOMContentLoaded', () => NotificationsManager.load());
   </script>

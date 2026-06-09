@@ -547,7 +547,7 @@
       load() {
         const data = JSON.parse(localStorage.getItem(this.STORAGE) || '{}');
         // Restore color inputs
-        ['color-primary','color-secondary','color-success','color-warning'].forEach(id => {
+        ['color-primary','color-secondary','color-success','color-warning','color-error'].forEach(id => {
           const el = document.getElementById(id);
           if (el && data[id]) el.value = data[id];
         });
@@ -561,7 +561,7 @@
           if (p) p.innerHTML = `<img src="${data.logo_dark}" alt="Logo preview">`;
         }
         // Restore any other text/url inputs
-        document.querySelectorAll('input[type="text"], input[type="url"], textarea').forEach(el => {
+        document.querySelectorAll('input[type="text"], input[type="url"], input[type="email"], textarea').forEach(el => {
           const k = el.id || el.name;
           if (k && data[k] !== undefined) el.value = data[k];
         });
@@ -570,11 +570,11 @@
 
       save() {
         const data = JSON.parse(localStorage.getItem(this.STORAGE) || '{}');
-        ['color-primary','color-secondary','color-success','color-warning'].forEach(id => {
+        ['color-primary','color-secondary','color-success','color-warning','color-error'].forEach(id => {
           const el = document.getElementById(id);
           if (el) data[id] = el.value;
         });
-        document.querySelectorAll('input[type="text"], input[type="url"], textarea').forEach(el => {
+        document.querySelectorAll('input[type="text"], input[type="url"], input[type="email"], textarea').forEach(el => {
           const k = el.id || el.name;
           if (k) data[k] = el.value;
         });
