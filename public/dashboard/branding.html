@@ -538,9 +538,61 @@
       });
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BrandingManager — persists logos (as data URLs), colours, brand metadata
+    // ═══════════════════════════════════════════════════════════════════════════
+    const BrandingManager = {
+      STORAGE: 'identark_branding',
+
+      load() {
+        const data = JSON.parse(localStorage.getItem(this.STORAGE) || '{}');
+        // Restore color inputs
+        ['color-primary','color-secondary','color-success','color-warning'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el && data[id]) el.value = data[id];
+        });
+        // Restore logo previews
+        if (data.logo_light) {
+          const p = document.getElementById('logo-preview');
+          if (p) p.innerHTML = `<img src="${data.logo_light}" alt="Logo preview">`;
+        }
+        if (data.logo_dark) {
+          const p = document.getElementById('logo-preview-dark');
+          if (p) p.innerHTML = `<img src="${data.logo_dark}" alt="Logo preview">`;
+        }
+        // Restore any other text/url inputs
+        document.querySelectorAll('input[type="text"], input[type="url"], textarea').forEach(el => {
+          const k = el.id || el.name;
+          if (k && data[k] !== undefined) el.value = data[k];
+        });
+        if (typeof updateColorPreview === 'function') updateColorPreview();
+      },
+
+      save() {
+        const data = JSON.parse(localStorage.getItem(this.STORAGE) || '{}');
+        ['color-primary','color-secondary','color-success','color-warning'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) data[id] = el.value;
+        });
+        document.querySelectorAll('input[type="text"], input[type="url"], textarea').forEach(el => {
+          const k = el.id || el.name;
+          if (k) data[k] = el.value;
+        });
+        const lp = document.querySelector('#logo-preview img');
+        if (lp && lp.src.startsWith('data:')) data.logo_light = lp.src;
+        const ld = document.querySelector('#logo-preview-dark img');
+        if (ld && ld.src.startsWith('data:')) data.logo_dark = ld.src;
+        data.updated_at = new Date().toISOString();
+        localStorage.setItem(this.STORAGE, JSON.stringify(data));
+      },
+    };
+
     function saveBranding() {
+      BrandingManager.save();
       IdentArk.showToast('Branding settings saved successfully', 'success');
     }
+
+    document.addEventListener('DOMContentLoaded', () => BrandingManager.load());
   </script>
 
   <style>

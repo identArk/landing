@@ -700,6 +700,72 @@
   <script src="/dashboard/js/api.js"></script>
   <script src="/dashboard/js/command-palette.js"></script>
   <script src="/dashboard/js/theme.js"></script>
+  <script>
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BillingManager — persistent plan + overage choice; invoice download
+    // ═══════════════════════════════════════════════════════════════════════════
+    const BillingManager = {
+      STORAGE: 'identark_billing',
+      state: { plan: 'developer', overage: false },
+      plans: {
+        developer: { name: 'Developer', monthly_usd: 0,    executions: 500 },
+        starter:   { name: 'Starter',   monthly_usd: 99,   executions: 5000 },
+        pro:       { name: 'Pro',       monthly_usd: 299,  executions: 50000 },
+        team:      { name: 'Team',      monthly_usd: 499,  executions: 100000 },
+      },
+      load() {
+        this.state = Object.assign({ plan: 'developer', overage: false }, JSON.parse(localStorage.getItem(this.STORAGE) || '{}'));
+        this.applyToUI();
+      },
+      persist() { localStorage.setItem(this.STORAGE, JSON.stringify(this.state)); },
+      applyToUI() {
+        ['developer','starter','pro','team'].forEach(k => {
+          const btn = document.querySelector(`button[onclick="selectPlan('${k}')"]`);
+          if (!btn) return;
+          if (this.state.plan === k) {
+            btn.textContent = 'Current Plan';
+            btn.disabled = true;
+            btn.classList.add('btn-secondary'); btn.classList.remove('btn-primary');
+          } else {
+            btn.disabled = false;
+            btn.textContent = `Select ${this.plans[k].name}`;
+          }
+        });
+      },
+    };
+
+    function selectPlan(plan) {
+      const p = BillingManager.plans[plan];
+      if (!p) return IdentArk.showToast('Unknown plan', 'error');
+      if (BillingManager.state.plan === plan) return;
+      if (!confirm(`Switch to ${p.name} ($${p.monthly_usd}/month, ${p.executions.toLocaleString()} executions)?`)) return;
+      BillingManager.state.plan = plan;
+      BillingManager.persist();
+      BillingManager.applyToUI();
+      IdentArk.showToast(`Switched to ${p.name} plan`, 'success');
+    }
+
+    function enableOverage() {
+      BillingManager.state.overage = true;
+      BillingManager.persist();
+      const b = document.getElementById('usage-warning-banner');
+      if (b) b.style.display = 'none';
+      IdentArk.showToast('Pay-as-you-go enabled — $0.002 per execution over plan limit', 'success');
+    }
+
+    function downloadInvoice(id) {
+      const p = BillingManager.plans[BillingManager.state.plan];
+      const body = `IdentArk Invoice ${id || '#' + Date.now().toString(36)}\nGenerated: ${new Date().toISOString()}\nPlan: ${p.name}\nMonthly: $${p.monthly_usd}.00\nIncluded executions: ${p.executions.toLocaleString()}\n\nThank you for your business.\n`;
+      const blob = new Blob([body], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `invoice-${id || new Date().toISOString().slice(0,10)}.txt`;
+      document.body.appendChild(a); a.click(); a.remove();
+      IdentArk.showToast('Invoice downloaded', 'success');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => BillingManager.load());
+  </script>
 
   <style>
     /* Usage Warning Banner */
