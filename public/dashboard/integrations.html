@@ -472,13 +472,126 @@
       });
     });
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // IntegrationManager — persistent install state
+    // ═══════════════════════════════════════════════════════════════════════════
+    const IntegrationManager = {
+      STORAGE: 'identark_installed_integrations',
+      installed: {},
+
+      init() {
+        this.installed = JSON.parse(localStorage.getItem(this.STORAGE) || '{}');
+        this.renderInstalled();
+        this.applyCardStates();
+      },
+
+      persist() { localStorage.setItem(this.STORAGE, JSON.stringify(this.installed)); },
+
+      install(id) {
+        const card = this.findCard(id);
+        if (!card) return false;
+        const name = card.querySelector('h4').textContent.trim();
+        const cat  = card.dataset.category || '';
+        const desc = card.querySelector('p').textContent.trim();
+        this.installed[id] = { id, name, category: cat, description: desc, installed_at: new Date().toISOString() };
+        this.persist();
+        this.applyCardStates();
+        this.renderInstalled();
+        return true;
+      },
+
+      uninstall(id) {
+        delete this.installed[id];
+        this.persist();
+        this.applyCardStates();
+        this.renderInstalled();
+      },
+
+      findCard(id) {
+        // We don't have data-integration-id attributes; match on the install button onclick
+        return Array.from(document.querySelectorAll('.integration-card')).find(c => {
+          const btn = c.querySelector('button');
+          return btn && (btn.getAttribute('onclick') || '').includes(`'${id}'`);
+        });
+      },
+
+      applyCardStates() {
+        document.querySelectorAll('#integration-list .integration-card').forEach(card => {
+          const btn = card.querySelector('button');
+          if (!btn) return;
+          const onclick = btn.getAttribute('onclick') || '';
+          const m = onclick.match(/'([^']+)'/);
+          if (!m) return;
+          const id = m[1];
+          if (this.installed[id]) {
+            card.classList.add('installed');
+            btn.textContent = 'Uninstall';
+            btn.className = 'btn btn-sm btn-secondary';
+            btn.setAttribute('onclick', `uninstallIntegration('${id}')`);
+          } else {
+            card.classList.remove('installed');
+            btn.textContent = 'Install';
+            btn.className = 'btn btn-sm btn-primary';
+            btn.setAttribute('onclick', `installIntegration('${id}')`);
+          }
+        });
+      },
+
+      renderInstalled() {
+        const c = document.getElementById('installed-integrations');
+        const badge = document.querySelector('.card-header .badge-success');
+        const list = Object.values(this.installed);
+        if (badge) badge.textContent = `${list.length} Active`;
+        if (!c) return;
+        if (!list.length) {
+          c.innerHTML = `<p class="text-muted text-center" style="grid-column:1/-1;padding:2rem;">No integrations installed yet</p>`;
+          return;
+        }
+        c.innerHTML = list.map(i => `
+          <div class="integration-card installed">
+            <div class="integration-header">
+              <div class="integration-logo" style="background:var(--surface-2);display:flex;align-items:center;justify-content:center;border-radius:8px;width:40px;height:40px;font-weight:700;color:var(--fg-2);">${i.name.charAt(0)}</div>
+              <span class="badge badge-success" style="background:#22c55e22;color:#22c55e;padding:2px 8px;border-radius:4px;font-size:11px;">active</span>
+            </div>
+            <h4>${i.name.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))}</h4>
+            <p>${i.description.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))}</p>
+            <div class="integration-footer">
+              <span class="integration-category">${i.category}</span>
+              <div style="display:flex;gap:6px;">
+                <button class="btn btn-sm btn-secondary" onclick="configureIntegration('${i.id}')">Configure</button>
+                <button class="btn btn-sm" style="background:#ef444422;color:#ef4444;" onclick="uninstallIntegration('${i.id}')">Remove</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      },
+    };
+
     function installIntegration(id) {
-      IdentArk.showToast(`Installing ${id} integration...`, 'info');
+      if (IntegrationManager.install(id)) {
+        IdentArk.showToast(`${IntegrationManager.installed[id].name} installed`, 'success');
+      }
+    }
+
+    function uninstallIntegration(id) {
+      const name = (IntegrationManager.installed[id] || {}).name || id;
+      if (!confirm(`Uninstall ${name}?`)) return;
+      IntegrationManager.uninstall(id);
+      IdentArk.showToast(`${name} uninstalled`, 'success');
     }
 
     function configureIntegration(id) {
-      IdentArk.showToast(`Opening ${id} configuration...`, 'info');
+      const i = IntegrationManager.installed[id];
+      if (!i) return IdentArk.showToast('Integration not installed', 'error');
+      const url = prompt(`Endpoint / URL for ${i.name} (saved per integration):`, i.config_url || '');
+      if (url === null) return;
+      i.config_url = url;
+      IntegrationManager.persist();
+      IntegrationManager.renderInstalled();
+      IdentArk.showToast(`${i.name} configured`, 'success');
     }
+
+    document.addEventListener('DOMContentLoaded', () => IntegrationManager.init());
   </script>
 
   <style>
