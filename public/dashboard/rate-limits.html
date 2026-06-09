@@ -386,93 +386,7 @@
                 <th>Actions</th>
               </tr>
             </thead>
-            <tbody>
-              <tr>
-                <td>
-                  <code>/v1/credentials/*</code>
-                  <span class="text-muted">Credential operations</span>
-                </td>
-                <td>1,000 req</td>
-                <td>per minute</td>
-                <td>
-                  <div class="usage-indicator">
-                    <div class="usage-bar-mini">
-                      <div class="usage-fill-mini" style="width: 42%"></div>
-                    </div>
-                    <span>420/1000</span>
-                  </div>
-                </td>
-                <td><button class="btn btn-sm btn-secondary" onclick="editLimit('credentials')">Edit</button></td>
-              </tr>
-              <tr>
-                <td>
-                  <code>/v1/sessions/*</code>
-                  <span class="text-muted">Session management</span>
-                </td>
-                <td>500 req</td>
-                <td>per minute</td>
-                <td>
-                  <div class="usage-indicator">
-                    <div class="usage-bar-mini">
-                      <div class="usage-fill-mini" style="width: 28%"></div>
-                    </div>
-                    <span>140/500</span>
-                  </div>
-                </td>
-                <td><button class="btn btn-sm btn-secondary" onclick="editLimit('sessions')">Edit</button></td>
-              </tr>
-              <tr>
-                <td>
-                  <code>/v1/agents/*</code>
-                  <span class="text-muted">Agent operations</span>
-                </td>
-                <td>200 req</td>
-                <td>per minute</td>
-                <td>
-                  <div class="usage-indicator">
-                    <div class="usage-bar-mini warning">
-                      <div class="usage-fill-mini" style="width: 76%"></div>
-                    </div>
-                    <span>152/200</span>
-                  </div>
-                </td>
-                <td><button class="btn btn-sm btn-secondary" onclick="editLimit('agents')">Edit</button></td>
-              </tr>
-              <tr>
-                <td>
-                  <code>/v1/audit/*</code>
-                  <span class="text-muted">Audit log queries</span>
-                </td>
-                <td>100 req</td>
-                <td>per minute</td>
-                <td>
-                  <div class="usage-indicator">
-                    <div class="usage-bar-mini">
-                      <div class="usage-fill-mini" style="width: 12%"></div>
-                    </div>
-                    <span>12/100</span>
-                  </div>
-                </td>
-                <td><button class="btn btn-sm btn-secondary" onclick="editLimit('audit')">Edit</button></td>
-              </tr>
-              <tr>
-                <td>
-                  <code>/v1/webhooks/*</code>
-                  <span class="text-muted">Webhook management</span>
-                </td>
-                <td>50 req</td>
-                <td>per minute</td>
-                <td>
-                  <div class="usage-indicator">
-                    <div class="usage-bar-mini">
-                      <div class="usage-fill-mini" style="width: 8%"></div>
-                    </div>
-                    <span>4/50</span>
-                  </div>
-                </td>
-                <td><button class="btn btn-sm btn-secondary" onclick="editLimit('webhooks')">Edit</button></td>
-              </tr>
-            </tbody>
+            <tbody id="limits-tbody"></tbody>
           </table>
         </div>
       </div>
@@ -565,18 +479,144 @@
   <script src="/dashboard/js/command-palette.js"></script>
   <script src="/dashboard/js/theme.js"></script>
   <script>
-    function editLimit(endpoint) {
-      document.getElementById('limit-modal').classList.add('active');
-    }
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RateLimitManager — persistent per-endpoint rate-limit config + usage
+    // ═══════════════════════════════════════════════════════════════════════════
+    const RateLimitManager = {
+      STORAGE: 'identark_rate_limits',
+      USAGE_STORAGE: 'identark_rate_usage',
+      limits: [],
+      usage: {},
+      editingKey: null,
+
+      defaults: [
+        { key: 'credentials', endpoint: '/v1/credentials/*', label: 'Credential operations', limit: 1000, window: 'minute', burst: 100, response: '429' },
+        { key: 'sessions',    endpoint: '/v1/sessions/*',    label: 'Session management',    limit: 500,  window: 'minute', burst: 50,  response: '429' },
+        { key: 'agents',      endpoint: '/v1/agents/*',      label: 'Agent operations',      limit: 200,  window: 'minute', burst: 25,  response: 'queue' },
+        { key: 'audit',       endpoint: '/v1/audit/*',       label: 'Audit log queries',     limit: 100,  window: 'minute', burst: 10,  response: '429' },
+        { key: 'webhooks',    endpoint: '/v1/webhooks/*',    label: 'Webhook management',    limit: 50,   window: 'minute', burst: 10,  response: '429' },
+      ],
+
+      consumers: [
+        { name: 'research-agent',  type: 'agent',   reqs_24h: 4250, rate_limited: 0,  avg_latency_ms: 412, status: 'ok' },
+        { name: 'marketing-agent', type: 'agent',   reqs_24h: 1820, rate_limited: 3,  avg_latency_ms: 380, status: 'ok' },
+        { name: 'deploy-agent',    type: 'agent',   reqs_24h: 215,  rate_limited: 12, avg_latency_ms: 524, status: 'warning' },
+        { name: 'gold@identark.io',type: 'user',    reqs_24h: 198,  rate_limited: 0,  avg_latency_ms: 142, status: 'ok' },
+        { name: 'n8n-workflow-#42',type: 'webhook', reqs_24h: 96,   rate_limited: 0,  avg_latency_ms: 207, status: 'ok' },
+      ],
+
+      async init() {
+        const stored = JSON.parse(localStorage.getItem(this.STORAGE) || 'null');
+        this.limits = Array.isArray(stored) && stored.length ? stored : [...this.defaults];
+        this.usage  = JSON.parse(localStorage.getItem(this.USAGE_STORAGE) || 'null') || this.synthUsage();
+        this.persist();
+        this.render();
+        this.renderConsumers();
+      },
+
+      synthUsage() {
+        // generate realistic current-window usage per endpoint
+        return Object.fromEntries(this.limits.map(l => {
+          const ratio = ({ credentials: 0.42, sessions: 0.28, agents: 0.76, audit: 0.12, webhooks: 0.08 })[l.key] ?? Math.random() * 0.4;
+          return [l.key, Math.round(l.limit * ratio)];
+        }));
+      },
+
+      persist() { localStorage.setItem(this.STORAGE, JSON.stringify(this.limits)); localStorage.setItem(this.USAGE_STORAGE, JSON.stringify(this.usage)); },
+
+      esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); },
+
+      pct(used, limit) { return Math.min(100, Math.round((used / Math.max(limit, 1)) * 100)); },
+      barClass(p) { return p >= 90 ? 'danger' : p >= 70 ? 'warning' : ''; },
+
+      render() {
+        const tbody = document.getElementById('limits-tbody');
+        if (!tbody) return;
+        tbody.innerHTML = this.limits.map(l => {
+          const used = this.usage[l.key] || 0;
+          const p = this.pct(used, l.limit);
+          return `
+            <tr>
+              <td><code>${this.esc(l.endpoint)}</code><br><span class="text-muted">${this.esc(l.label)}</span></td>
+              <td>${l.limit.toLocaleString()} req</td>
+              <td>per ${this.esc(l.window)}</td>
+              <td>
+                <div class="usage-indicator">
+                  <div class="usage-bar-mini ${this.barClass(p)}"><div class="usage-fill-mini" style="width: ${p}%"></div></div>
+                  <span>${used}/${l.limit}</span>
+                </div>
+              </td>
+              <td><button class="btn btn-sm btn-secondary" onclick="editLimit('${this.esc(l.key)}')">Edit</button></td>
+            </tr>`;
+        }).join('');
+      },
+
+      renderConsumers() {
+        const tbody = document.getElementById('consumers-tbody');
+        if (!tbody) return;
+        tbody.innerHTML = this.consumers.map(c => `
+          <tr>
+            <td><strong>${this.esc(c.name)}</strong><br><span class="text-muted" style="font-size:11px;">${this.esc(c.type)}</span></td>
+            <td>${c.reqs_24h.toLocaleString()}</td>
+            <td>${c.rate_limited > 0 ? `<span style="color:#f59e0b;">${c.rate_limited}</span>` : '0'}</td>
+            <td>${c.avg_latency_ms} ms</td>
+            <td><span class="badge" style="background:${c.status==='ok'?'#22c55e22':'#f59e0b22'};color:${c.status==='ok'?'#22c55e':'#f59e0b'};padding:2px 8px;border-radius:4px;font-size:11px;">${this.esc(c.status)}</span></td>
+          </tr>
+        `).join('');
+      },
+
+      openEditor(key) {
+        const l = this.limits.find(x => x.key === key);
+        if (!l) return;
+        this.editingKey = key;
+        document.getElementById('endpoint-name').value = l.endpoint;
+        document.getElementById('limit-value').value = l.limit;
+        document.getElementById('limit-window').value = l.window;
+        document.getElementById('burst-limit').value = l.burst;
+        const respRadio = document.querySelector(`input[name="limit-response"][value="${l.response}"]`);
+        if (respRadio) respRadio.checked = true;
+        document.getElementById('limit-modal').classList.add('active');
+      },
+
+      save() {
+        if (!this.editingKey) { showNotification('No endpoint selected', 'error'); return; }
+        const l = this.limits.find(x => x.key === this.editingKey);
+        if (!l) return;
+        l.limit  = parseInt(document.getElementById('limit-value').value, 10) || l.limit;
+        l.window = document.getElementById('limit-window').value;
+        l.burst  = parseInt(document.getElementById('burst-limit').value, 10) || 0;
+        l.response = (document.querySelector('input[name="limit-response"]:checked') || {}).value || '429';
+        this.persist();
+        this.render();
+        showNotification(`Updated rate limit for ${l.endpoint}`, 'success');
+        this.editingKey = null;
+      },
+    };
+
+    function editLimit(key) { RateLimitManager.openEditor(key); }
 
     function closeLimitModal() {
       document.getElementById('limit-modal').classList.remove('active');
+      RateLimitManager.editingKey = null;
     }
 
     function saveLimit() {
+      RateLimitManager.save();
       closeLimitModal();
-      IdentArk.showToast('Rate limit updated successfully', 'success');
     }
+
+    // Light-touch toast (matches other pages)
+    function showNotification(message, type = 'info') {
+      if (window.IdentArk && IdentArk.showToast) return IdentArk.showToast(message, type);
+      const n = document.createElement('div');
+      n.className = `notification notification-${type}`;
+      n.textContent = message;
+      document.body.appendChild(n);
+      setTimeout(() => n.classList.add('show'), 10);
+      setTimeout(() => { n.classList.remove('show'); setTimeout(() => n.remove(), 300); }, 3000);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => RateLimitManager.init());
   </script>
 
   <style>
