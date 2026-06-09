@@ -27,10 +27,10 @@
     { id: 'action-invite-member', label: 'Invite Team Member', category: 'Actions', icon: 'user-plus', action: () => navigate('settings.html#team') },
 
     // Documentation
-    { id: 'docs-sdk', label: 'SDK Documentation', category: 'Docs', icon: 'book-open', action: () => window.open('https://github.com/identark/sdk#readme', '_blank') },
-    { id: 'docs-api', label: 'API Reference', category: 'Docs', icon: 'code', action: () => window.open('https://github.com/identark/sdk#api-reference', '_blank') },
-    { id: 'docs-python', label: 'Python SDK Guide', category: 'Docs', icon: 'file-text', action: () => window.open('https://github.com/identark/sdk#python', '_blank') },
-    { id: 'docs-typescript', label: 'TypeScript SDK Guide', category: 'Docs', icon: 'file-text', action: () => window.open('https://github.com/identark/sdk#typescript', '_blank') },
+    { id: 'docs-sdk', label: 'SDK Documentation', category: 'Docs', icon: 'book-open', action: () => window.open('https://github.com/identArk/identark#readme', '_blank') },
+    { id: 'docs-api', label: 'API Reference', category: 'Docs', icon: 'code', action: () => window.open('https://github.com/identArk/identark#api-reference', '_blank') },
+    { id: 'docs-python', label: 'Python SDK Guide', category: 'Docs', icon: 'file-text', action: () => window.open('https://github.com/identArk/identark#python', '_blank') },
+    { id: 'docs-typescript', label: 'TypeScript SDK Guide', category: 'Docs', icon: 'file-text', action: () => window.open('https://github.com/identArk/identark#typescript', '_blank') },
 
     // Quick Settings
     { id: 'settings-theme', label: 'Toggle Theme', category: 'Settings', icon: 'moon', action: toggleTheme },

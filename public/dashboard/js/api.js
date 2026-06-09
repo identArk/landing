@@ -32,9 +32,14 @@ const API = {
       this._updateUserUI();
       return true;
     } catch (e) {
-      // No valid session via cookie or header
+      // No valid session via cookie or header. Show a representative demo
+      // identity in the header so the shell never sits on "Loading…" — this is
+      // display-only; _accessToken stays null so all managers fall back to
+      // their offline/demo data paths and no requests are sent as authed.
       this._accessToken = null;
       this._refreshToken = null;
+      this._user = { name: 'Gold Okpa', email: 'gold@identark.io' };
+      this._updateUserUI();
       return false;
     }
   },
