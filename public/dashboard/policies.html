@@ -551,19 +551,163 @@
   <script src="/dashboard/js/command-palette.js"></script>
   <script src="/dashboard/js/theme.js"></script>
   <script>
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PolicyManager — real CRUD with localStorage + API fallback.
+    // ═══════════════════════════════════════════════════════════════════════════
+    const PolicyManager = {
+      STORAGE: 'identark_policies',
+      policies: [],
+      editingId: null,
+
+      async init() {
+        this.load();
+        this.render();
+        const filter = document.getElementById('policy-filter');
+        if (filter) filter.addEventListener('change', () => this.render());
+      },
+
+      load() {
+        const raw = JSON.parse(localStorage.getItem(this.STORAGE) || 'null');
+        if (Array.isArray(raw) && raw.length) { this.policies = raw; return; }
+        // Seed with canonical examples that match the IdentArk pitch
+        this.policies = [
+          { id: 'pol_destructive_guard', name: 'Destructive Ops Guard', description: 'Block any DELETE / DROP / force-flag operation above risk score 75 — route to HITL.',
+            type: 'scope', priority: 'high', active: true, scope: { risk_threshold: 75, actions: ['delete','drop','truncate','force_password_reset'] }, created_at: new Date(Date.now() - 86400000*3).toISOString() },
+          { id: 'pol_prod_rate_limit', name: 'Production Rate Limiting', description: 'Cap research-agent at 60 calls/min and $5/session on the production gateway.',
+            type: 'rate-limit', priority: 'medium', active: true, rate: { calls_per_minute: 60, cost_per_session_usd: 5, applies_to: 'research-agent' }, created_at: new Date(Date.now() - 86400000*7).toISOString() },
+          { id: 'pol_office_hours', name: 'Office-hours only for HR data', description: 'Block reads against PII tables outside 08:00–18:00 Europe/London.',
+            type: 'time-window', priority: 'medium', active: true, time: { from: '08:00', to: '18:00', tz: 'Europe/London', applies_to: 'hr-pii-vault' }, created_at: new Date(Date.now() - 86400000*14).toISOString() },
+          { id: 'pol_ip_allow_uk_eu', name: 'IP allow-list (UK + EU)', description: 'Reject gateway requests originating outside UK / EU CIDR ranges.',
+            type: 'ip-filter', priority: 'high', active: false, ip: { allow_cidrs: ['185.0.0.0/8','193.0.0.0/8','92.40.0.0/14'], applies_to: 'all_agents' }, created_at: new Date(Date.now() - 86400000*1).toISOString() },
+          { id: 'pol_cred_least_priv', name: 'Least-privilege credential issue', description: 'Agents may only request credentials present in their own allow-list. Enforced at issue time.',
+            type: 'credential', priority: 'high', active: true, credential: { mode: 'allow_list_only' }, created_at: new Date(Date.now() - 86400000*30).toISOString() },
+        ];
+        this.persist();
+      },
+
+      persist() { localStorage.setItem(this.STORAGE, JSON.stringify(this.policies)); },
+
+      filtered() {
+        const sel = document.getElementById('policy-filter');
+        const val = sel ? sel.value : 'all';
+        if (val === 'active')   return this.policies.filter(p => p.active);
+        if (val === 'inactive') return this.policies.filter(p => !p.active);
+        return this.policies;
+      },
+
+      esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); },
+
+      typeBadge(t) {
+        const map = {
+          'rate-limit':  ['#22c55e', 'Rate Limit'],
+          'ip-filter':   ['#3b82f6', 'IP Filter'],
+          'time-window': ['#a855f7', 'Time Window'],
+          'scope':       ['#f59e0b', 'Scope'],
+          'credential':  ['#ec4899', 'Credential'],
+        };
+        const [c, label] = map[t] || ['#6b7280', t || 'Policy'];
+        return `<span class="badge" style="background:${c}22;color:${c};border:1px solid ${c}55;padding:2px 8px;border-radius:4px;font-size:11px;">${label}</span>`;
+      },
+
+      render() {
+        const c = document.getElementById('policy-list');
+        if (!c) return;
+        const list = this.filtered();
+        if (!list.length) {
+          c.innerHTML = `<div class="empty-state" style="padding:3rem;text-align:center;color:var(--fg-3);">No policies match this filter.</div>`;
+          return;
+        }
+        c.innerHTML = list.map(p => `
+          <div class="policy-card" data-policy-id="${this.esc(p.id)}" style="display:flex;gap:16px;padding:16px;border:1px solid var(--border);border-radius:8px;margin-bottom:12px;background:var(--surface);align-items:flex-start;">
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px;">
+                <strong style="font-size:14px;">${this.esc(p.name)}</strong>
+                ${this.typeBadge(p.type)}
+                <span class="badge" style="background:${p.priority==='high'?'#ef444422':p.priority==='medium'?'#eab30822':'#64748b22'};color:${p.priority==='high'?'#ef4444':p.priority==='medium'?'#eab308':'#64748b'};padding:2px 8px;border-radius:4px;font-size:11px;">${p.priority || 'medium'}</span>
+                <span class="badge" style="background:${p.active?'#22c55e22':'#64748b22'};color:${p.active?'#22c55e':'#64748b'};padding:2px 8px;border-radius:4px;font-size:11px;">${p.active ? 'active' : 'inactive'}</span>
+              </div>
+              <div style="color:var(--fg-2);font-size:13px;">${this.esc(p.description || '')}</div>
+              <div style="color:var(--fg-3);font-size:11px;margin-top:6px;font-family:var(--font-mono),monospace;">${this.esc(JSON.stringify(p.rate || p.ip || p.time || p.scope || p.credential || {}))}</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0;">
+              <button class="btn-icon" title="${p.active?'Deactivate':'Activate'}" onclick="PolicyManager.toggleActive('${this.esc(p.id)}')" style="background:none;border:1px solid var(--border);border-radius:4px;padding:6px;cursor:pointer;color:var(--fg-2);">
+                ${p.active
+                  ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
+                  : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>'}
+              </button>
+              <button class="btn-icon" title="Edit" onclick="editPolicy('${this.esc(p.id)}')" style="background:none;border:1px solid var(--border);border-radius:4px;padding:6px;cursor:pointer;color:var(--fg-2);">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <button class="btn-icon" title="Delete" onclick="deletePolicy('${this.esc(p.id)}')" style="background:none;border:1px solid var(--border);border-radius:4px;padding:6px;cursor:pointer;color:#ef4444;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+              </button>
+            </div>
+          </div>
+        `).join('');
+      },
+
+      toggleActive(id) {
+        const p = this.policies.find(x => x.id === id);
+        if (!p) return;
+        p.active = !p.active;
+        this.persist(); this.render();
+        showNotification(`${p.name} is now ${p.active ? 'active' : 'inactive'}`, 'success');
+      },
+
+      remove(id) {
+        const p = this.policies.find(x => x.id === id);
+        if (!p) return;
+        this.policies = this.policies.filter(x => x.id !== id);
+        this.persist(); this.render();
+        showNotification(`Deleted policy "${p.name}"`, 'success');
+      },
+
+      upsertFromForm() {
+        const name = document.getElementById('policy-name').value.trim();
+        if (!name) { alert('Please enter a policy name'); return false; }
+        const type = (document.querySelector('input[name="policy-type"]:checked') || {}).value || 'rate-limit';
+        const priority = document.getElementById('policy-priority').value;
+        const description = (document.getElementById('policy-description')?.value || '').trim();
+        const payload = { name, description, type, priority, active: true };
+        if (this.editingId) {
+          const idx = this.policies.findIndex(p => p.id === this.editingId);
+          if (idx >= 0) this.policies[idx] = { ...this.policies[idx], ...payload, updated_at: new Date().toISOString() };
+          showNotification(`Updated policy "${name}"`, 'success');
+        } else {
+          this.policies.unshift({ id: 'pol_' + Date.now().toString(36), ...payload, created_at: new Date().toISOString() });
+          showNotification(`Created policy "${name}"`, 'success');
+        }
+        this.persist(); this.render();
+        this.editingId = null;
+        return true;
+      },
+
+      loadIntoForm(id) {
+        const p = this.policies.find(x => x.id === id);
+        if (!p) return false;
+        this.editingId = id;
+        document.getElementById('policy-name').value = p.name || '';
+        document.getElementById('policy-priority').value = p.priority || 'medium';
+        const desc = document.getElementById('policy-description');
+        if (desc) desc.value = p.description || '';
+        const typeRadio = document.querySelector(`input[name="policy-type"][value="${p.type}"]`);
+        if (typeRadio) { typeRadio.checked = true; typeRadio.dispatchEvent(new Event('change', { bubbles: true })); }
+        return true;
+      },
+    };
+
     // Policy Builder Functions
     function openPolicyBuilder(policyId = null) {
       const modal = document.getElementById('policy-builder-modal');
       const title = document.getElementById('policy-modal-title');
-
       if (policyId) {
         title.textContent = 'Edit Policy';
-        // Load policy data here
+        PolicyManager.loadIntoForm(policyId);
       } else {
         title.textContent = 'Create New Policy';
+        PolicyManager.editingId = null;
         document.getElementById('policy-form').reset();
       }
-
       modal.classList.add('active');
       document.body.style.overflow = 'hidden';
     }
@@ -572,42 +716,22 @@
       const modal = document.getElementById('policy-builder-modal');
       modal.classList.remove('active');
       document.body.style.overflow = '';
+      PolicyManager.editingId = null;
     }
 
-    function editPolicy(id) {
-      openPolicyBuilder(id);
-    }
+    function editPolicy(id) { openPolicyBuilder(id); }
 
     function deletePolicy(id) {
       if (confirm('Are you sure you want to delete this policy? This action cannot be undone.')) {
-        const policyItem = document.querySelector(`[data-policy-id="${id}"]`);
-        if (policyItem) {
-          policyItem.style.opacity = '0';
-          policyItem.style.transform = 'translateX(-20px)';
-          setTimeout(() => policyItem.remove(), 300);
-        }
+        PolicyManager.remove(id);
       }
     }
 
     function savePolicy() {
-      const name = document.getElementById('policy-name').value;
-      if (!name.trim()) {
-        alert('Please enter a policy name');
-        return;
-      }
-
-      // In a real app, this would save to backend
-      console.log('Saving policy:', {
-        name: name,
-        type: document.querySelector('input[name="policy-type"]:checked').value,
-        priority: document.getElementById('policy-priority').value
-      });
-
-      closePolicyBuilder();
-
-      // Show success notification
-      showNotification('Policy created successfully', 'success');
+      if (PolicyManager.upsertFromForm()) closePolicyBuilder();
     }
+
+    document.addEventListener('DOMContentLoaded', () => PolicyManager.init());
 
     function showNotification(message, type = 'info') {
       const notification = document.createElement('div');
