@@ -14,6 +14,9 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 
+  <!-- Google Identity Services (bypasses broken Firebase auth handler) -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -658,16 +661,20 @@
     });
 
     // ════════════════════════════════════════════════════════════════════════════
-    // Google OAuth via Firebase
+    // Google OAuth via Google Identity Services (GIS)
+    // Bypasses Firebase's __/auth/handler which requires Firebase Hosting
     // ════════════════════════════════════════════════════════════════════════════
-    document.getElementById('google-btn').addEventListener('click', async () => {
-      hideError();
-      const provider = new firebase.auth.GoogleAuthProvider();
-      provider.addScope('email');
-      provider.addScope('profile');
+    const GOOGLE_CLIENT_ID = '213407896930-et2a3frsb25i45jmdfj5hdo25uqin1mg.apps.googleusercontent.com';
+    let googleTokenClient = null;
 
+    async function handleGoogleToken(tokenResponse) {
+      if (tokenResponse.error) {
+        showError('Google sign-in failed. Please try again.');
+        return;
+      }
       try {
-        const result = await auth.signInWithPopup(provider);
+        const credential = firebase.auth.GoogleAuthProvider.credential(null, tokenResponse.access_token);
+        const result = await auth.signInWithCredential(credential);
         const idToken = await result.user.getIdToken();
         await backendLogin(idToken);
 
@@ -680,9 +687,36 @@
         window.location.href = '/dashboard/index.html';
       } catch (error) {
         console.error('Google login error:', error);
-        if (error.code !== 'auth/popup-closed-by-user') {
-          showError(error.message || 'Google login failed');
-        }
+        showError(error.message || 'Google login failed');
+      }
+    }
+
+    // Initialize GIS token client when library loads
+    function initGoogleAuth() {
+      if (typeof google !== 'undefined' && google.accounts && google.accounts.oauth2) {
+        googleTokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: GOOGLE_CLIENT_ID,
+          scope: 'email profile openid',
+          callback: handleGoogleToken,
+        });
+      }
+    }
+
+    // Retry initialization until GIS library is ready
+    (function waitForGIS() {
+      if (typeof google !== 'undefined' && google.accounts) {
+        initGoogleAuth();
+      } else {
+        setTimeout(waitForGIS, 300);
+      }
+    })();
+
+    document.getElementById('google-btn').addEventListener('click', () => {
+      hideError();
+      if (googleTokenClient) {
+        googleTokenClient.requestAccessToken({ prompt: 'select_account' });
+      } else {
+        showError('Google sign-in is still loading. Please wait a moment and try again.');
       }
     });
 
