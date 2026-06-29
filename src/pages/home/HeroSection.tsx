@@ -86,8 +86,8 @@ export function HeroSection() {
       </p>
 
       <div className="hero-actions">
-        <Link to="/request-access" className="btn btn-primary btn-lg">
-          Request Early Access
+        <Link to="/signup" className="btn btn-primary btn-lg">
+          Get Started Free
           <ArrowRight />
         </Link>
         <a

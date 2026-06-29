@@ -40,8 +40,8 @@ export function PricingSection() {
             <li>30-day audit log</li>
             <li>Email support</li>
           </ul>
-          <Link to="/request-access" className="price-cta btn-secondary">
-            Request Early Access
+          <Link to="/signup" className="price-cta btn-secondary">
+            Get Started
           </Link>
         </div>
 
@@ -61,8 +61,8 @@ export function PricingSection() {
             <li>1-year audit log</li>
             <li>Priority Slack support</li>
           </ul>
-          <Link to="/request-access" className="price-cta btn-gold">
-            Request Early Access
+          <Link to="/signup" className="price-cta btn-gold">
+            Get Started
           </Link>
         </div>
 

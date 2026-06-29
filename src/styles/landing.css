@@ -285,9 +285,26 @@ nav.scrolled {
   box-shadow: 0 8px 24px var(--brass-glow);
 }
 
+.btn-ghost {
+  background: transparent;
+  color: var(--fg-secondary);
+  padding: 10px 20px;
+}
+
+.btn-ghost:hover {
+  color: var(--fg);
+  background: rgba(10, 22, 40, 0.04);
+}
+
 .btn-lg {
   padding: 16px 32px;
   font-size: 15px;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* ── HERO ── */

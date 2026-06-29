@@ -4,7 +4,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { HomePage } from "@/pages/home/HomePage";
 import { LoginPage } from "@/pages/LoginPage";
 import { SignupPage } from "@/pages/SignupPage";
-import { RequestAccessPage } from "@/pages/RequestAccessPage";
+// RequestAccessPage removed — /request-access now redirects to /signup
 
 import { VerifyEmailPage } from "@/pages/VerifyEmailPage";
 
@@ -19,8 +19,8 @@ export default function App() {
             <Route path="/login.html" element={<Navigate to="/login" replace />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/signup.html" element={<Navigate to="/signup" replace />} />
-            <Route path="/request-access" element={<RequestAccessPage />} />
-            <Route path="/request-access.html" element={<Navigate to="/request-access" replace />} />
+            <Route path="/request-access" element={<Navigate to="/signup" replace />} />
+            <Route path="/request-access.html" element={<Navigate to="/signup" replace />} />
             <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route path="/verify-email.html" element={<Navigate to="/verify-email" replace />} />
           </Routes>

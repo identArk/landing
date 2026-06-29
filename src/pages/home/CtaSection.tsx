@@ -21,8 +21,8 @@ export function CtaSection() {
         </h2>
         <p>Deploy AI agents with the confidence that every critical operation is risk-scored, human-approved, and cryptographically logged.</p>
         <div className="cta-actions">
-          <Link to="/request-access" className="btn btn-gold btn-lg">
-            Request Early Access
+          <Link to="/signup" className="btn btn-gold btn-lg">
+            Get Started Free
             <ArrowRight />
           </Link>
           <a href="https://github.com/identark/identark" target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-lg" style={{ color: "rgba(255,255,255,0.8)", borderColor: "rgba(255,255,255,0.2)" }}>

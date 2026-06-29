@@ -163,7 +163,7 @@ export function VerifyEmailPage() {
                 </div>
 
                 <p className="help-text">
-                  Wrong email? <Link to="/request-access">Request access</Link> or try signing up again.
+                  Wrong email? <Link to="/signup">Sign up</Link> again or <Link to="/login">sign in</Link>.
                 </p>
               </div>
             ) : (
