@@ -33,6 +33,8 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "https://api.identark.io/v1/$1" },
     { "source": "/admin", "destination": "/admin.html" },
+    { "source": "/signup", "destination": "/signup.html" },
+    { "source": "/login", "destination": "/login.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
