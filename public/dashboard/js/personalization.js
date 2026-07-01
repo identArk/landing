@@ -36,6 +36,17 @@
     return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
   }
 
+  // Capitalise a name the way a person would write it: "gold" -> "Gold",
+  // "mary-jane" -> "Mary-Jane", "o'nealso" handled gracefully. Preserves
+  // existing internal capitals for names like "McCarthy".
+  function titleCase(value) {
+    var s = String(value || '').trim();
+    if (!s) return '';
+    return s.replace(/[A-Za-zÀ-ÿ]+(?:['-][A-Za-zÀ-ÿ]+)*/g, function (word) {
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    });
+  }
+
   /**
    * Normalize whatever the API gave us into a single shape.
    * Accepts the /auth/me response, a cached user, or the demo fallback
@@ -44,14 +55,14 @@
   function derive(user) {
     user = user || {};
 
-    var orgName = (user.org_name || (user.org && user.org.name) || '').trim();
-    var first = (user.first_name || '').trim();
-    var last = (user.last_name || '').trim();
+    var orgName = titleCase((user.org_name || (user.org && user.org.name) || '').trim());
+    var first = titleCase((user.first_name || '').trim());
+    var last = titleCase((user.last_name || '').trim());
     var email = (user.email || '').trim();
 
     // Support the demo fallback / cached `name` field too.
     if (!first && !last && user.name) {
-      var parts = String(user.name).trim().split(/\s+/);
+      var parts = titleCase(String(user.name).trim()).split(/s+/);
       first = parts[0] || '';
       last = parts.slice(1).join(' ') || '';
     }
@@ -63,7 +74,7 @@
     var accountType = isCompany ? 'company' : 'individual';
 
     // Header / dropdown display name.
-    var personName = personFull || (email ? email.split('@')[0] : '') || 'User';
+    var personName = personFull || (email ? titleCase(email.split('@')[0]) : '') || 'User';
     var displayName = isCompany ? orgName : personName;
 
     // Initials for the fallback avatar.
@@ -100,7 +111,7 @@
     if (info.photoUrl) {
       el.innerHTML = '<img src="' + info.photoUrl + '" alt="' + info.displayName +
         '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" ' +
-        'onerror="this.parentNode.textContent=this.parentNode.getAttribute(\'data-initials\');">';
+        'onerror="this.parentNode.textContent=this.parentNode.getAttribute('data-initials');">';
       el.setAttribute('data-initials', info.initials);
       el.style.background = info.color;
     } else {
@@ -117,7 +128,7 @@
     if (title) {
       title.textContent = info.isCompany
         ? 'Welcome, ' + info.orgName
-        : info.firstName + ', welcome to IdentArk';
+        : 'Welcome back, ' + info.firstName;
     }
     if (subtitle && info.isCompany) {
       subtitle.textContent =
