@@ -150,16 +150,25 @@ const API = {
 
   _updateUserUI() {
     if (!this._user) return;
-
+    // Delegate to the shared personalization module (avatar, name, dropdown,
+    // welcome banner, account_type) so individuals and companies render
+    // consistently everywhere.
+    if (window.IdentArkUser) {
+      window.IdentArkUser.render(this._user);
+      return;
+    }
+    // Defensive fallback if the module failed to load.
+    const u = this._user;
+    const name = (`${u.first_name || ''} ${u.last_name || ''}`).trim() ||
+      u.org_name || u.name || (u.email ? u.email.split('@')[0] : 'User');
     const avatar = document.getElementById('user-avatar');
     const userName = document.getElementById('user-name');
     const dropdownName = document.getElementById('dropdown-user-name');
     const dropdownEmail = document.getElementById('dropdown-user-email');
-
-    if (avatar) avatar.textContent = this._user.name?.charAt(0).toUpperCase() || '?';
-    if (userName) userName.textContent = this._user.name || 'User';
-    if (dropdownName) dropdownName.textContent = this._user.name || 'User';
-    if (dropdownEmail) dropdownEmail.textContent = this._user.email || '';
+    if (avatar) avatar.textContent = name.charAt(0).toUpperCase();
+    if (userName) userName.textContent = name;
+    if (dropdownName) dropdownName.textContent = name;
+    if (dropdownEmail) dropdownEmail.textContent = u.email || '';
   },
 
   logout() {

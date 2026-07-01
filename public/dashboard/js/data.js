@@ -106,7 +106,16 @@ const DashboardData = {
    * Update user UI
    */
   _updateUserUI(user = {}, org = {}) {
-    const name = org?.name || user?.org_name || user?.email?.split('@')[0] || 'User';
+    // Delegate to the shared personalization module so avatar (initials/logo),
+    // name, dropdown, welcome banner and account_type stay consistent.
+    if (window.IdentArkUser) {
+      window.IdentArkUser.render(Object.assign({}, user, org && org.name ? { org_name: org.name } : {}));
+      return;
+    }
+    // Defensive fallback if the module failed to load.
+    const name = org?.name || user?.org_name ||
+      (`${user?.first_name || ''} ${user?.last_name || ''}`).trim() ||
+      user?.email?.split('@')[0] || 'User';
     const email = user?.email || '';
     const initial = (name || 'U').charAt(0).toUpperCase();
 
