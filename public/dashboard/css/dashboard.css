@@ -1227,6 +1227,43 @@ body {
   transform: scale(1) translateY(0);
 }
 
+/* Standalone .modal (no .modal-overlay wrapper) */
+.modal:has(> .modal-content) {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: all var(--transition-base);
+}
+
+.modal:has(> .modal-content).open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.modal:has(> .modal-content) > .modal-content {
+  background: var(--bg-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  width: 100%;
+  max-width: 480px;
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+  transform: scale(0.95) translateY(10px);
+  transition: transform var(--transition-base);
+}
+
+.modal:has(> .modal-content).open > .modal-content {
+  transform: scale(1) translateY(0);
+}
+
 .modal-header {
   display: flex;
   align-items: center;
