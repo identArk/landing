@@ -379,11 +379,11 @@
           </div>
 
           <div class="form-group">
-            <label for="agent-credentials">Allowed Credentials</label>
-            <select id="agent-credentials" name="allowed_credentials" multiple required size="5">
+            <label>Allowed Credentials</label>
+            <div class="credential-checklist" id="agent-credentials">
               <!-- Populated at runtime by AgentsManager.populateCredentialDropdown() -->
-            </select>
-            <span class="form-hint">Hold Ctrl/Cmd to select multiple credentials. Don't see yours? <a href="credentials.html?action=add">Register one first</a>.</span>
+            </div>
+            <span class="form-hint">Don't see yours? <a href="credentials.html?action=add">Register one first</a>.</span>
           </div>
 
           <div class="form-group">
@@ -454,34 +454,44 @@
           } else {
             this.credentials = JSON.parse(localStorage.getItem('identark_credentials') || '[]');
           }
-          this.populateCredentialDropdown();
         } catch (e) {
           console.warn('Could not load credentials:', e);
+          this.credentials = [];
         }
+        this.populateCredentialDropdown();
       },
 
       populateCredentialDropdown() {
-        const select = document.getElementById('agent-credentials');
-        if (!select) return;
+        const container = document.getElementById('agent-credentials');
+        if (!container) return;
 
-        select.innerHTML = '';
+        container.innerHTML = '';
+
+        const providerIcons = {
+          openai: '🤖', anthropic: '🧠', mistral: '🌬️',
+          azure_openai: '☁️', bedrock: '🪨', other: '🔑'
+        };
 
         if (!this.credentials || this.credentials.length === 0) {
-          const opt = document.createElement('option');
-          opt.value = '';
-          opt.textContent = 'No credentials yet — register one in Credentials first';
-          opt.disabled = true;
-          select.appendChild(opt);
+          container.innerHTML = '<div class="cred-empty">No credentials yet — <a href="credentials.html?action=add">add one first</a></div>';
           return;
         }
 
         this.credentials.forEach(cred => {
           const label = cred.label || cred.name || cred.provider || 'unnamed';
           const provider = cred.provider || 'unknown';
-          const opt = document.createElement('option');
-          opt.value = cred.credential_ref || cred.id || label;
-          opt.textContent = `${label} (${provider})`;
-          select.appendChild(opt);
+          const value = cred.credential_ref || cred.id || label;
+          const icon = providerIcons[provider] || '🔑';
+
+          const item = document.createElement('label');
+          item.className = 'cred-check-item';
+          item.innerHTML = `
+            <input type="checkbox" name="allowed_credentials" value="${this.escapeHtml(value)}">
+            <span class="cred-check-icon">${icon}</span>
+            <span class="cred-check-label">${this.escapeHtml(label)}</span>
+            <span class="cred-check-provider">${this.escapeHtml(provider)}</span>
+          `;
+          container.appendChild(item);
         });
       },
 
@@ -611,13 +621,13 @@
           const name = formData.get('agent_id');
           const description = formData.get('description') || '';
           const model = formData.get('model') || 'gpt-4o';
-          // Multi-select: read every selected credential the operator allowed.
-          const allowedCredentials = formData.getAll('allowed_credentials').filter(Boolean);
+          // Read checked credentials
+          const checkedBoxes = form.querySelectorAll('input[name="allowed_credentials"]:checked');
+          const allowedCredentials = Array.from(checkedBoxes).map(cb => cb.value).filter(Boolean);
           if (allowedCredentials.length === 0) {
-            throw new Error('Select at least one allowed credential, or register a credential first.');
+            throw new Error('Select at least one credential.');
           }
           // Backend currently models one primary credential per agent; pass the first.
-          // The full allow-list is stored client-side so the UI reflects the operator's intent.
           const credentialRef = allowedCredentials[0];
           const cred = this.credentials.find(c => (c.credential_ref || c.id) === credentialRef);
           const provider = cred?.provider || 'openai';
@@ -874,6 +884,68 @@
     .agent-card-add span {
       font-size: 14px;
       font-weight: 500;
+    }
+
+    /* Credential Checklist */
+    .credential-checklist {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .cred-check-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+
+    .cred-check-item:last-child {
+      border-bottom: none;
+    }
+
+    .cred-check-item:hover {
+      background: var(--surface-2, rgba(255,255,255,0.03));
+    }
+
+    .cred-check-item input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent, #D4A853);
+      flex-shrink: 0;
+    }
+
+    .cred-check-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .cred-check-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--fg);
+    }
+
+    .cred-check-provider {
+      font-size: 12px;
+      color: var(--fg-3);
+      margin-left: auto;
+    }
+
+    .cred-empty {
+      padding: 20px 16px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--fg-3);
+    }
+
+    .cred-empty a {
+      color: var(--accent, #D4A853);
     }
 
     .checkbox-label {
