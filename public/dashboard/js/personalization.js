@@ -37,8 +37,8 @@
   }
 
   // Capitalise a name the way a person would write it: "gold" -> "Gold",
-  // "mary-jane" -> "Mary-Jane", "o'nealso" handled gracefully. Preserves
-  // existing internal capitals for names like "McCarthy".
+  // "mary-jane" -> "Mary-Jane". Preserves existing internal capitals
+  // for names like "McCarthy".
   function titleCase(value) {
     var s = String(value || '').trim();
     if (!s) return '';
@@ -62,7 +62,7 @@
 
     // Support the demo fallback / cached `name` field too.
     if (!first && !last && user.name) {
-      var parts = titleCase(String(user.name).trim()).split(/s+/);
+      var parts = titleCase(String(user.name).trim()).split(/\s+/);
       first = parts[0] || '';
       last = parts.slice(1).join(' ') || '';
     }
@@ -109,10 +109,14 @@
   function renderAvatar(el, info) {
     if (!el) return;
     if (info.photoUrl) {
-      el.innerHTML = '<img src="' + info.photoUrl + '" alt="' + info.displayName +
-        '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" ' +
-        'onerror="this.parentNode.textContent=this.parentNode.getAttribute('data-initials');">';
+      var img = document.createElement('img');
+      img.src = info.photoUrl;
+      img.alt = info.displayName;
+      img.style.cssText = 'width:100%;height:100%;border-radius:50%;object-fit:cover;';
+      img.onerror = function () { el.textContent = info.initials; };
       el.setAttribute('data-initials', info.initials);
+      el.innerHTML = '';
+      el.appendChild(img);
       el.style.background = info.color;
     } else {
       el.textContent = info.initials;
