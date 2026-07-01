@@ -517,16 +517,14 @@
                   <label for="apply-credentials">Credentials</label>
                   <select id="apply-credentials" class="form-select" multiple>
                     <option value="all" selected>All Credentials</option>
-                    <option value="prod">Production Keys</option>
-                    <option value="dev">Development Keys</option>
-                    <option value="db">Database Credentials</option>
-                    <option value="api">API Keys</option>
+                    <!-- Populated dynamically -->
                   </select>
                 </div>
                 <div class="form-group">
                   <label for="apply-agents">Agents</label>
                   <select id="apply-agents" class="form-select" multiple>
                     <option value="all" selected>All Agents</option>
+                    <!-- Populated dynamically -->
                   </select>
                 </div>
               </div>
@@ -560,10 +558,56 @@
       editingId: null,
 
       async init() {
+        this.isAuthenticated = await API.init();
         this.load();
         this.render();
+        await this.loadDropdownData();
         const filter = document.getElementById('policy-filter');
         if (filter) filter.addEventListener('change', () => this.render());
+      },
+
+      async loadDropdownData() {
+        // Populate Agents dropdown
+        try {
+          let agents = [];
+          if (this.isAuthenticated) {
+            agents = await API.listAgents();
+          } else {
+            agents = JSON.parse(localStorage.getItem('identark_agents') || '[]');
+          }
+          const agentSelect = document.getElementById('apply-agents');
+          if (agentSelect && agents.length) {
+            agents.forEach(a => {
+              const opt = document.createElement('option');
+              opt.value = a.agent_key || a.name || a.id;
+              opt.textContent = a.name || a.agent_key || a.id;
+              agentSelect.appendChild(opt);
+            });
+          }
+        } catch (e) { console.warn('Could not load agents for policy form:', e); }
+
+        // Populate Credentials dropdown
+        try {
+          let creds = [];
+          if (this.isAuthenticated) {
+            creds = await API.listCredentials();
+          } else {
+            creds = JSON.parse(localStorage.getItem('identark_credentials') || '[]');
+          }
+          const credSelect = document.getElementById('apply-credentials');
+          if (credSelect && creds.length) {
+            // Remove hardcoded placeholders (keep "All Credentials")
+            Array.from(credSelect.options).forEach(opt => {
+              if (opt.value !== 'all') opt.remove();
+            });
+            creds.forEach(c => {
+              const opt = document.createElement('option');
+              opt.value = c.credential_ref || c.id || c.label;
+              opt.textContent = `${c.label || c.name || 'unnamed'} (${c.provider || 'unknown'})`;
+              credSelect.appendChild(opt);
+            });
+          }
+        } catch (e) { console.warn('Could not load credentials for policy form:', e); }
       },
 
       load() {
